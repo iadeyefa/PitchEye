@@ -1,26 +1,59 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import "./App.css";
+import Login from "./pages/login";
 
-function App() {
+export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>("");
+
+  const handleLogin = (email: string) => {
+    setUserEmail(email);
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    setUserEmail("");
+    setIsLoggedIn(false);
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Routes>
+      {/* Login page */}
+      <Route
+        path="/login"
+        element={
+          isLoggedIn ? (
+            <Navigate to="/" replace />
+          ) : (
+            <Login onLogin={handleLogin} />
+          )
+        }
+      />
+
+      {/* Protected FYP */}
+      <Route
+        path="/"
+        element={
+          isLoggedIn ? (
+            <div className="container">
+              <div className="dashboard">
+                <h1>Welcome to your PitchEye FYP!</h1>
+                <p>Email: {userEmail}</p>
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            </div>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      {/* For when we create the rest of the app */}
+      <Route
+        path="*"
+        element={<Navigate to={isLoggedIn ? "/" : "/login"} replace />}
+      />
+    </Routes>
   );
 }
-
-export default App;

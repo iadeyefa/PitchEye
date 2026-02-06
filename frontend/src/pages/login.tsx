@@ -21,7 +21,6 @@ export default function Login({ onLogin }: LoginProps) {
         autoPlay
         loop
         muted
-        controls
         preload="auto"
         className="background-video"
         playsInline

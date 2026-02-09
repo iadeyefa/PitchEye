@@ -8,3 +8,14 @@ def list_videos(request):
     data = supabase.table('video_clips').select('*').execute()
     return Response(data.data)
 
+@api_view(['GET'])
+def get_video(request, video_id): 
+    data = supabase.table('video_clips').select('*').eq('id', video_id).execute()
+    return Response(data.data)
+
+
+"""
+TODO: 
+- Post Video
+- Delete Video
+"""

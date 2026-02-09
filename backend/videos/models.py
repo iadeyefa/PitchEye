@@ -1,5 +1,7 @@
 from django.db import models
 
+# Models are stored in Supabase
+
 """
 Supabase Schema: video_clips
 

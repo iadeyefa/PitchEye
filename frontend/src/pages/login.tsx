@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useAuth } from "../AuthContext";
+import SignupModal from "../components/SignupModal";
 
 type LoginProps = {
   onLogin: (email: string) => void;
@@ -7,11 +9,29 @@ type LoginProps = {
 export default function Login({ onLogin }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [isSignupOpen, setIsSignupOpen] = useState(false);
+  const { login } = useAuth();
 
-  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (email && password) {
+    setError("");
+
+    if (!email || !password) {
+      setError("Email and password are required");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await login(email, password);
       onLogin(email);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message || "Failed to login");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -36,6 +56,8 @@ export default function Login({ onLogin }: LoginProps) {
       <h1 className="app-title">PitchEye</h1>
 
       <div className="login-box">
+        {error && <div className="error-message">{error}</div>}
+
         <form onSubmit={handleLogin}>
           <div className="form-group">
             <label htmlFor="email">Email:</label>
@@ -45,6 +67,7 @@ export default function Login({ onLogin }: LoginProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
+              disabled={loading}
               required
             />
           </div>
@@ -57,15 +80,37 @@ export default function Login({ onLogin }: LoginProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
+              disabled={loading}
               required
             />
           </div>
 
-          <button type="submit" className="login-btn">
-            Login
+          <button type="submit" className="login-btn" disabled={loading}>
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
+
+        <div className="signup-link">
+          Don't have an account?{" "}
+          <button
+            type="button"
+            className="signup-link-btn"
+            onClick={() => setIsSignupOpen(true)}
+            disabled={loading}
+          >
+            Sign Up
+          </button>
+        </div>
       </div>
+
+      <SignupModal
+        isOpen={isSignupOpen}
+        onClose={() => setIsSignupOpen(false)}
+        onSignupSuccess={() => {
+          setEmail("");
+          setPassword("");
+        }}
+      />
     </div>
   );
 }

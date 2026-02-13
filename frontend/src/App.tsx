@@ -1,21 +1,25 @@
-import React, { useState } from "react";
+import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
 import Login from "./pages/login";
+import { useAuth } from "./AuthContext";
 
-export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userEmail, setUserEmail] = useState<string>("");
+function App() {
+  const { user, loading, logout } = useAuth();
 
-  const handleLogin = (email: string) => {
-    setUserEmail(email);
-    setIsLoggedIn(true);
+  const handleLogout = async () => {
+    await logout();
   };
 
-  const handleLogout = () => {
-    setUserEmail("");
-    setIsLoggedIn(false);
-  };
+  if (loading) {
+    return (
+      <div className="container">
+        <div className="dashboard">
+          <h1>Loading...</h1>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Routes>
@@ -23,10 +27,10 @@ export default function App() {
       <Route
         path="/login"
         element={
-          isLoggedIn ? (
+          user ? (
             <Navigate to="/" replace />
           ) : (
-            <Login onLogin={handleLogin} />
+            <Login onLogin={() => {}} />
           )
         }
       />
@@ -35,12 +39,14 @@ export default function App() {
       <Route
         path="/"
         element={
-          isLoggedIn ? (
+          user ? (
             <div className="container">
               <div className="dashboard">
                 <h1>Welcome to your PitchEye FYP!</h1>
-                <p>Email: {userEmail}</p>
-                <button onClick={handleLogout}>Logout</button>
+                <p>Email: {user.email}</p>
+                <button onClick={handleLogout}>
+                  Logout
+                </button>
               </div>
             </div>
           ) : (
@@ -52,8 +58,10 @@ export default function App() {
       {/* For when we create the rest of the app */}
       <Route
         path="*"
-        element={<Navigate to={isLoggedIn ? "/" : "/login"} replace />}
+        element={<Navigate to={user ? "/" : "/login"} replace />}
       />
     </Routes>
   );
 }
+
+export default App;

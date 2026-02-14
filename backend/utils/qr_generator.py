@@ -62,6 +62,6 @@ def generate_qr_code(session_code, base_url="http://localhost:3000"):
         raise
 
 def check_session_code_exists(session_code):
-    from utils.supabase_client import supabase as db_client
+    from supabase_client import supabase as db_client
     result = db_client.table('games').select('session_code').eq('session_code', session_code).execute()
     return len(result.data) > 0

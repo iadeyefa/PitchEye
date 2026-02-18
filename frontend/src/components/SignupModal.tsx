@@ -59,7 +59,7 @@ const enterTeam = async (teamName: string, adminID?: string) => {
       throw new Error('Network response was not ok');
     }
 
-    return await response.json(); // Parse response as JSON
+    return await response.json(); 
   } catch (error) {
     console.error('There has been a problem with your fetch operation:', error);
   }
@@ -107,7 +107,7 @@ export default function SignupModal({
       return;
     }
 
-    if (role === 'member') {
+    if (role != 'admin') {
       if (!teamCode)
       {setError("Please enter a team code");
       return;}
@@ -120,10 +120,7 @@ export default function SignupModal({
     try {
       const userId = await signup(email, password);
 
-      // for both: send name, email, role, team_id to api/users/create_user
-      // TODO: save the id from this, use it for enterTeam
       enterUser(firstName,lastName, email, role, teamId, userId)
-      // for admin: send team name, admin_id to api/teams/create_team
       if(role=='admin') await enterTeam(teamName, userId)
       setEmail("");
       setPassword("");
@@ -185,32 +182,23 @@ export default function SignupModal({
             />
           </div>
 
-      <div>
-        <p>Please select your role:</p>
-        <input
-          type="radio"
-          id="member"
-          name="role"
-          value="member"
-          onChange={() => setRole('member')}
-        />
-        <label htmlFor="member">member</label><br/>
-        <input
-          type="radio"
-          id="admin"
-          name="role"
-          value="admin"
-          onChange={() => setRole('admin')}
-        />
-        <label htmlFor="admin">admin</label><br/>
-
-      {role === 'admin' && (
-        <input type="text" placeholder="team name" onChange={(e) => setTeamName(e.target.value)} />
-      )}
-      {role === 'member' && (
-        <input type="text" placeholder="team code" onChange={(e) => setTeamCode(e.target.value)} />
-      )}
-      </div>
+          <div className="form-group">
+            <label>Please select your role:</label>
+            <select title='role-select' onChange={(e) => setRole(e.target.value)} value={role}>
+              <option value="">-- Select a Role --</option>
+              <option value="admin">Admin</option>
+              <option value="coach">Coach</option>
+              <option value="player">Player</option>
+              <option value="parent">Parent</option>
+              <option value="viewer">Viewer</option>
+            </select>
+            {role === 'admin' && (
+              <input type="text" placeholder="Team Name" onChange={(e) => setTeamName(e.target.value)} />
+            )}
+            {role && role !== 'admin' && (
+              <input type="text" placeholder="Team Code" onChange={(e) => setTeamCode(e.target.value)} />
+            )}
+          </div>
           <button
             type="submit"
             className="signup-btn"

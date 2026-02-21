@@ -3,7 +3,7 @@ from . import views
 
 urlpatterns = [
     path('', views.list_games),
-    path('', views.get_game),
-    path('', views.create_game),
-
+    path('<int:id>/', views.get_game),
+    path('create/', views.create_game),
+    path('join/<str:session_code>/', views.get_game_by_session_code),
 ]

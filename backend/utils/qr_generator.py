@@ -21,10 +21,6 @@ def generate_session_code(length = 6):
 def generate_qr_code(session_code, base_url="http://localhost:3000"):
     """
     Generates a QR code image for a game session
-
-    :param session_code: unique session code
-    :param base_url: will ultimately be URL for the join link
-    :return: tuple: (qr_code_url, buffer) - URL used to store QR code and image buffer
     """
     join_url = f"{base_url}/join/{session_code}"
 
@@ -46,14 +42,12 @@ def generate_qr_code(session_code, base_url="http://localhost:3000"):
     file_path = f"qr-codes/{session_code}.png"
 
     try:
-        # Upload file
         supabase.storage.from_('qr-codes').upload(
             file_path,
             buffer.getvalue(),
             file_options={"content-type": "image/png"}
         )
 
-        # Get public URL
         qr_code_url = supabase.storage.from_('qr-codes').get_public_url(file_path)
 
         return qr_code_url, buffer
@@ -62,6 +56,6 @@ def generate_qr_code(session_code, base_url="http://localhost:3000"):
         raise
 
 def check_session_code_exists(session_code):
-    from supabase_client import supabase as db_client
+    from utils.supabase_client import supabase as db_client
     result = db_client.table('games').select('session_code').eq('session_code', session_code).execute()
     return len(result.data) > 0

@@ -2,7 +2,7 @@ import qrcode
 import io
 import random
 import string
-from utils.supabase_client import supabase
+from utils.supabase_client import supabase_admin as supabase
 
 def generate_session_code(length = 6):
     chars = string.ascii_uppercase + string.digits
@@ -39,7 +39,10 @@ def generate_qr_code(session_code, base_url="http://localhost:3000"):
             file_options={"content-type": "image/png"}
         )
 
-        qr_code_url = supabase.storage.from_('qr-codes').get_public_url(file_path)
+        qr_code_url = supabase.storage.from_('qr-codes').create_signed_url(
+            file_path,
+            expires_in=604800  # 7 days
+        )
 
         return qr_code_url, buffer
     except Exception as e:

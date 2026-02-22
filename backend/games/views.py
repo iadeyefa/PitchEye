@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from utils.supabase_client import supabase
+from utils.supabase_client import supabase, supabase_admin
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from utils.helpers import check_user
@@ -8,12 +8,12 @@ from utils.qr_generator import generate_session_code, generate_qr_code, check_se
         
 @api_view(['GET'])
 def list_games(request):
-    data = supabase.table('games').select('*').execute()
+    data = supabase_admin.table('games').select('*').execute()
     return Response(data.data)
 
 @api_view(['GET'])
 def get_game(request, id): 
-    data = supabase.table('games').select('*').eq('id', id).execute()
+    data = supabase_admin.table('games').select('*').eq('id', id).execute()
     return Response(data.data)
 
 @api_view(['POST'])
@@ -35,7 +35,7 @@ def create_game(request):
         'qr_code_url': qr_code_url,
     }
 
-    data = supabase.table('games').insert(payload).execute()
+    data = supabase_admin.table('games').insert(payload).execute()
     return Response(data.data[0], status=201)
 
 @api_view(['GET'])

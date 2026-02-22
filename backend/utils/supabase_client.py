@@ -8,10 +8,3 @@ supabase = create_client(
     os.getenv("SUPABASE_URL"),
     os.getenv("SUPABASE_KEY")
 )
-
-resp = supabase.auth.sign_in_with_password({
-    "email": "adeyefaife@gmail.com",
-    "password": "#CanineDuke24"
-})
-
-print(resp.session.access_token)

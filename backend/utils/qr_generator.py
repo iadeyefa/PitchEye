@@ -2,16 +2,7 @@ import qrcode
 import io
 import random
 import string
-from supabase import create_client, Client
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-supabase = create_client(
-    os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_KEY"),
-)
+from utils.supabase_client import supabase
 
 def generate_session_code(length = 6):
     chars = string.ascii_uppercase + string.digits

@@ -8,6 +8,63 @@ type SignupModalProps = {
   onSignupSuccess: () => void;
 };
 
+// we need to verify if the team code exists if role=member
+const checkTeamCode = async (code: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/teams/get_team/?code=${code}`, {
+        method: 'GET',
+      });
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+
+    return await response.json(); }
+    catch (error) {
+    console.error('There has been a problem with your fetch operation:', error);
+  }
+}
+
+const enterUser = async (firstName: string, lastName: string, email: string, role: string, teamID: string,userId?: string) => {
+    try {
+    const response = await fetch('http://localhost:8000/api/users/create_user/', {
+      method: 'POST', 
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({userId, firstName, lastName, email, role, teamID}), 
+    });
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+
+    return await response.json(); 
+  } catch (error) {
+    console.error('There has been a problem with your fetch operation:', error);
+  }
+}
+
+const enterTeam = async (teamName: string, adminID?: string) => {
+    try {
+    const response = await fetch('http://localhost:8000/api/teams/create_team/', {
+      method: 'POST', 
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({teamName, adminID}), 
+    });
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+
+    return await response.json(); 
+  } catch (error) {
+    console.error('There has been a problem with your fetch operation:', error);
+  }
+}
+
 export default function SignupModal({
   isOpen,
   onClose,
@@ -18,6 +75,12 @@ export default function SignupModal({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState('');
+  const [teamName, setTeamName] = useState('');
+  const [teamCode, setTeamCode] = useState('');
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [teamId, setTeamId] = useState("");
   const { signup } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -39,9 +102,26 @@ export default function SignupModal({
       return;
     }
 
+    if (role === 'admin' && !teamName) {
+      setError("Please enter a team name");
+      return;
+    }
+
+    if (role != 'admin') {
+      if (!teamCode)
+      {setError("Please enter a team code");
+      return;}
+      const data = await checkTeamCode(teamCode);
+      if (!data || data.length === 0) { setError("Team does not exist"); return; }
+      setTeamId(data[0]['id'])  
+    }
+
     setLoading(true);
     try {
-      await signup(email, password);
+      const userId = await signup(email, password);
+
+      enterUser(firstName,lastName, email, role, teamId, userId)
+      if(role=='admin') await enterTeam(teamName, userId)
       setEmail("");
       setPassword("");
       setConfirmPassword("");
@@ -102,6 +182,23 @@ export default function SignupModal({
             />
           </div>
 
+          <div className="form-group">
+            <label>Please select your role:</label>
+            <select title='role-select' onChange={(e) => setRole(e.target.value)} value={role}>
+              <option value="">-- Select a Role --</option>
+              <option value="admin">Admin</option>
+              <option value="coach">Coach</option>
+              <option value="player">Player</option>
+              <option value="parent">Parent</option>
+              <option value="viewer">Viewer</option>
+            </select>
+            {role === 'admin' && (
+              <input type="text" placeholder="Team Name" onChange={(e) => setTeamName(e.target.value)} />
+            )}
+            {role && role !== 'admin' && (
+              <input type="text" placeholder="Team Code" onChange={(e) => setTeamCode(e.target.value)} />
+            )}
+          </div>
           <button
             type="submit"
             className="signup-btn"

@@ -6,7 +6,7 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string) => Promise<string | undefined>;
   logout: () => Promise<void>;
 };
 
@@ -61,11 +61,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = async (email: string, password: string) => {
     if (!supabase) throw new Error("Supabase is not initialized");
-    const { error } = await supabase.auth.signUp({
+    const {data, error } = await supabase.auth.signUp({
       email,
       password,
     });
     if (error) throw error;
+    return data.user?.id;
   };
 
   const logout = async () => {

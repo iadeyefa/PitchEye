@@ -126,3 +126,14 @@
   background-color: #ccc;
   cursor: not-allowed;
 }
+
+select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  margin-bottom: 12px;
+  appearance: none;
+  color: #555;
+  cursor: pointer;
+}

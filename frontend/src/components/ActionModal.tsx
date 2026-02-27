@@ -42,7 +42,7 @@ export default function ActionModal({ isOpen, onClose }: ActionModalProps) {
                 <div className="am-options">
                     <button className="am-option am-option--game" onClick={handleCreateGame}>
                         <div className="am-option-icon">
-                            <img src="../../public/gamecreationicon.png" alt="Create Game"></img>
+                            <img src="/gamecreationicon.png" alt="Create Game" width="22" height="22"></img>
                         </div>
                         <div className="am-option-text">
                             <span className="am-option-title">Create Game</span>
@@ -55,7 +55,7 @@ export default function ActionModal({ isOpen, onClose }: ActionModalProps) {
 
                     <button className="am-option am-option--clip" onClick={handleUploadClip}>
                         <div className="am-option-icon">
-                            <img src="../../public/uploadvideoicon.png" alt="Upload Video"></img>
+                            <img src="/uploadvideoicon.png" alt="Upload Video" width="22" height="22"></img>
                         </div>
                         <div className="am-option-text">
                             <span className="am-option-title">Upload Clip</span>

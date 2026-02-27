@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap');
+
+.am-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.am-sheet {
+    width: 100%;
+    max-width: 480px;
+    background: #1a1a2e;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px 20px 0 0;
+    padding: 12px 20px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-family: 'DM Sans', sans-serif;
+}
+
+.am-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.15);
+    align-self: center;
+    margin-bottom: 4px;
+}
+
+.am-heading {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.4);
+    margin: 0 0 4px;
+    padding: 0 4px;
+}
+
+.am-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.am-option {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    padding: 16px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.am-option--game:hover,
+.am-option--clip:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.am-option--game .am-option-icon {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.am-option--clip .am-option-icon {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.am-option-icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.am-option-icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+.am-option-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.am-option-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f0f0f0;
+    line-height: 1.2;
+}
+
+.am-option-desc {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.am-chevron {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    color: rgba(255, 255, 255, 0.2);
+}
+
+.am-cancel {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+    padding: 13px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-top: 2px;
+}
+
+.am-cancel:hover {
+    background: rgba(255, 255, 255, 0.04);
+}

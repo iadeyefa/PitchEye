@@ -6,7 +6,7 @@ type GameProps = {
     id: number;
     title: string;
     session_code: string;
-    qr_code_url: string | { signedURL?: string; signed_url?: string };
+    qr_code_url: string;
     game_time: string;
 };
 
@@ -61,9 +61,7 @@ export default function CreateGame() {
     };
 
     if (result) {
-        const qrUrl = typeof result.qr_code_url === "object"
-            ? (result.qr_code_url as any).signedURL ?? (result.qr_code_url as any).signed_url
-            : result.qr_code_url;
+        const qrUrl = result.qr_code_url;
 
         return (
             <div className="cg-container">
@@ -128,7 +126,7 @@ export default function CreateGame() {
                         />
                     </div>
 
-                    <button type="submit" className="cg-btn-primary" disabled={loading}>
+                    <button type="submit" className="cg-btn-primary" disabled={loading || !title || ! gameTime}>
                         {loading ? "Generating..." : "Create Game"}
                     </button>
                 </form>

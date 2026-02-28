@@ -6,6 +6,7 @@ import LivePage from "./pages/LivePage";
 import Upload from "./pages/UploadPage";
 import Profile from "./pages/Profile";
 import Navbar from "./components/Navbar";
+import CreateGame from "./components/CreateGame";
 import { useAuth } from "./AuthContext";
 
 function App() {
@@ -69,6 +70,7 @@ function App() {
       <Route path="/live" element={user ? <LivePage /> : <Navigate to="/link" replace />} />
       <Route path="/upload" element={user ? <Upload /> : <Navigate to="/upload" replace />} />
       <Route path="/profile" element={user ? <Profile /> : <Navigate to="/profile" replace />} />
+        <Route path="/games/create" element={user ? <CreateGame /> : <Navigate to="/login" replace />} />
     </Routes>
     </>
   );

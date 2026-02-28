@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
 import Login from "./pages/login";
 import LivePage from "./pages/LivePage";
-import Upload from "./pages/UploadPage";
+import Upload from "./components/UploadClip";
 import Profile from "./pages/Profile";
 import Navbar from "./components/Navbar";
 import CreateGame from "./components/CreateGame";

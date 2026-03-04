@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import "../styles/common.css";
 import "../styles/UploadClip.css";
 
 type ClipProps = {
@@ -54,7 +55,7 @@ export default function UploadClip() {
         setLoading(true);
         
         // TODO: update with the actual endpoint once that exists
-        await new Promise((r) => setTimeout(r, 1500)); 
+        await new Promise((r) => setTimeout(r, 1500));
         setLoading(false);
 
         setResult({
@@ -76,22 +77,22 @@ export default function UploadClip() {
 
     if (result) {
         return (
-            <div className="uc-container">
-                <div className="uc-card">
-                    <p className="uc-eyebrow">Clip Posted</p>
-                    <h2 className="uc-title">{result.caption}</h2>
+            <div className="app-card-container">
+                <div className="app-card-card">
+                    <p className="app-card-eyebrow">Clip Posted</p>
+                    <h2 className="app-card-title">{result.caption}</h2>
                     {result.tagged_players.length > 0 && (
-                        <p className="uc-subtitle">
+                        <p className="app-card-subtitle">
                             Tagged: {result.tagged_players.map((p) => `@${p}`).join(", ")}
                         </p>
                     )}
-                    <p className="uc-subtitle">
+                    <p className="app-card-subtitle">
                         {new Date(result.created_at).toLocaleString(undefined, {
                             dateStyle: "medium", timeStyle: "short",
                         })}
                     </p>
                     <div className="uc-action-row">
-                        <button className="uc-btn-secondary" onClick={reset}>
+                        <button className="app-card-btn-secondary" onClick={reset}>
                             + Upload Another
                         </button>
                     </div>
@@ -101,18 +102,18 @@ export default function UploadClip() {
     }
 
     return (
-        <div className="uc-container">
-            <div className="uc-card">
-                <h1 className="uc-title">Upload Clip</h1>
-                <p className="uc-subtitle">Share a video from a recent match or practice</p>
+        <div className="app-card-container">
+            <div className="app-card">
+                <h1 className="app-card-title">Upload Clip</h1>
+                <p className="app-card-subtitle">Share a video from a recent match or practice</p>
 
-                {error && <div className="uc-error">{error}</div>}
+                {error && <div className="app-card-error">{error}</div>}
 
-                <form onSubmit={handleSubmit} className="uc-form">
-                    <div className="uc-field">
-                        <label className="uc-label">Video</label>
+                <form onSubmit={handleSubmit} className="app-card-form">
+                    <div className="app-card-field">
+                        <label className="app-card-label">Video</label>
                         <div
-                            className={`uc-dropzone${video ? "uc-dropzone--selected" : ""}`}
+                            className={`uc-dropzone ${video ? "uc-dropzone--selected" : ""}`}
                             onClick={() => fileInputRef.current?.click()}
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={(e) => {
@@ -148,11 +149,11 @@ export default function UploadClip() {
                         />
                     </div>
 
-                    <div className="uc-field">
-                        <label className="uc-label" htmlFor="clip-caption">Caption</label>
+                    <div className="app-card-field">
+                        <label className="app-card-label" htmlFor="clip-caption">Caption</label>
                         <input
                             id="clip-caption"
-                            className="uc-input"
+                            className="app-card-input"
                             type="text"
                             placeholder="Describe the play"
                             value={caption}
@@ -162,8 +163,8 @@ export default function UploadClip() {
                         />
                     </div>
 
-                    <div className="uc-field">
-                        <label className="uc-label" htmlFor="clip-tags">Tag Players</label>
+                    <div className="app-card-field">
+                        <label className="app-card-label" htmlFor="clip-tags">Tag Players</label>
                         <div
                             className="uc-tag-area"
                             onClick={() => document.getElementById("clip-tags")?.focus()}
@@ -197,7 +198,7 @@ export default function UploadClip() {
 
                     <button
                         type="submit"
-                        className="uc-btn-primary"
+                        className="app-card-btn-primary"
                         disabled={loading || !video}
                     >
                         {loading ? "Uploading..." : "Post Clip"}

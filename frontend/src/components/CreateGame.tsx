@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
+import "../styles/common.css";
 import "../styles/CreateGame.css";
 
 type GameProps = {
@@ -66,11 +67,11 @@ export default function CreateGame() {
             : result.qr_code_url;
 
         return (
-            <div className="cg-container">
-                <div className="cg-card">
-                    <p className="cg-eyebrow">Now Live</p>
-                    <h2 className="cg-title">{result.title}</h2>
-                    <p className="cg-subtitle">
+            <div className="app-card-container">
+                <div className="app-card">
+                    <p className="app-card-eyebrow">Now Live</p>
+                    <h2 className="app-card-title">{result.title}</h2>
+                    <p className="app-card-subtitle">
                         {new Date(result.game_time).toLocaleString(undefined, {
                             dateStyle: "medium", timeStyle: "short",
                         })}
@@ -84,30 +85,30 @@ export default function CreateGame() {
                     {qrUrl && (
                         <div className="cg-qr-wrapper">
                             <img src={qrUrl} alt="QR Code" className="cg-qr" />
-                            <p className="cg-hint">Scan to join</p>
+                            <p className="app-card-hint">Scan to join</p>
                         </div>
                     )}
 
-                    <button className="cg-btn-secondary" onClick={reset}>+ New Game</button>
+                    <button className="app-card-btn-secondary" onClick={reset}>+ New Game</button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="cg-container">
-            <div className="cg-card">
-                <h1 className="cg-title">Create Game</h1>
-                <p className="cg-subtitle">Set up a new session for your team</p>
+        <div className="app-card-container">
+            <div className="app-card">
+                <h1 className="app-card-title">Create Game</h1>
+                <p className="app-card-subtitle">Set up a new session for your team</p>
 
-                {error && <div className="cg-error">{error}</div>}
+                {error && <div className="app-card-error">{error}</div>}
 
-                <form onSubmit={handleSubmit} className="cg-form">
-                    <div className="cg-field">
-                        <label className="cg-label" htmlFor="game-title">Game Title</label>
+                <form onSubmit={handleSubmit} className="app-card-form">
+                    <div className="app-card-field">
+                        <label className="app-card-label" htmlFor="game-title">Game Title</label>
                         <input
                             id="game-title"
-                            className="cg-input"
+                            className="app-card-input"
                             type="text"
                             placeholder="Enter Game Title"
                             value={title}
@@ -116,11 +117,11 @@ export default function CreateGame() {
                         />
                     </div>
 
-                    <div className="cg-field">
-                        <label className="cg-label" htmlFor="game-time">Date & Time</label>
+                    <div className="app-card-field">
+                        <label className="app-card-label" htmlFor="game-time">Date & Time</label>
                         <input
                             id="game-time"
-                            className="cg-input"
+                            className="app-card-input"
                             type="datetime-local"
                             value={gameTime}
                             onChange={(e) => setGameTime(e.target.value)}
@@ -128,7 +129,7 @@ export default function CreateGame() {
                         />
                     </div>
 
-                    <button type="submit" className="cg-btn-primary" disabled={loading}>
+                    <button type="submit" className="app-card-btn-primary" disabled={loading}>
                         {loading ? "Generating..." : "Create Game"}
                     </button>
                 </form>

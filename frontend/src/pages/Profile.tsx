@@ -35,6 +35,9 @@ export default function Profile() {
     const [joinCode, setJoinCode] = useState("");
     const [joinError, setJoinError] = useState("");
     const [loading, setLoading] = useState(true);
+    const [userRole, setUserRole] = useState<string>("");
+    const [teamMode, setTeamMode] = useState<'join' | 'create'>('join');
+    const [newTeamName, setNewTeamName] = useState("");
 
     const isValidEmail = (email: string) =>
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -71,15 +74,61 @@ export default function Profile() {
     };
 
     const fetchMyTeam = async (token: string) => {
+        const profileRes = await fetch("http://localhost:8000/api/users/get_user/", {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            if (profileData.length > 0) setUserRole(profileData[0].role);
+        }
+
         const response = await fetch("http://localhost:8000/api/teams/my/", {
             headers: { Authorization: `Bearer ${token}` },
         });
-        if (response.status === 404) return; // no team yet, that's fine
+        if (response.status === 404 || response.status === 403) return; // no team yet
         if (!response.ok) throw new Error(`Error ${response.status}`);
         const data = await response.json();
         setTeam(data.team);
         setMembers(data.members);
         setTeamGames(data.games);
+    };
+
+    const handleCreateTeam = async () => {
+        setJoinError("");
+        try {
+            const token = await getToken();
+            const response = await fetch("http://localhost:8000/api/teams/create_team/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ team_name: newTeamName }),
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || "Failed to create team");
+            }
+            setNewTeamName("");
+            await fetchMyTeam(token);
+        } catch (err: unknown) {
+            setJoinError((err as Error).message);
+        }
+    };
+
+    const handleLeaveTeam = async () => {
+        try {
+            const token = await getToken();
+            await fetch("http://localhost:8000/api/teams/leave_team/", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setTeam(null);
+            setMembers([]);
+            setTeamGames([]);
+        } catch (err: unknown) {
+            setError((err as Error).message);
+        }
     };
 
     const handleJoinTeam = async () => {
@@ -190,53 +239,90 @@ export default function Profile() {
                     {loading ? (
                         <p className="p-empty">Loading...</p>
                     ) : team ? (
-                        <>
-                            <div className="p-team-header">
-                                <span className="p-team-name">{team.name}</span>
-                                <span className="p-game-code">{team.join_code}</span>
-                            </div>
+                          <>
+                              <div className="p-team-header">
+                                  <span className="p-team-name">{team.name}</span>
+                                  <span className="p-game-code">{team.join_code}</span>
+                              </div>
+                              <button className="p-btn-leave" onClick={handleLeaveTeam}>
+                                  Leave Team
+                              </button>
 
-                            <h3>Members</h3>
-                            {members.map((m) => (
-                                <div key={m.id} className="p-member-item">
-                                    <span className="p-member-email">{m.email}</span>
-                                    <span className="p-member-role">{m.role}</span>
-                                </div>
-                            ))}
+                              <h3>Members</h3>
+                              {members.map((m) => (
+                                  <div key={m.id} className="p-member-item">
+                                      <span className="p-member-email">{m.email}</span>
+                                      <span className="p-member-role">{m.role}</span>
+                                  </div>
+                              ))}
 
-                            <h3>Team Sessions</h3>
-                            {teamGames.length === 0 ? (
-                                <p className="p-empty">No team sessions yet.</p>
-                            ) : (
-                                teamGames.map((game) => (
-                                    <div key={game.id} className="p-game-item">
-                                        <span className="p-game-title">{game.title}</span>
-                                        <span className="p-game-code">{game.session_code}</span>
-                                    </div>
-                                ))
-                            )}
-                        </>
-                    ) : (
-                        <>
-                            <p className="p-empty">You're not part of a team yet.</p>
-                            {joinError && <div className="p-error">{joinError}</div>}
-                            <input
-                                className="p-input"
-                                type="text"
-                                placeholder="Enter team code"
-                                value={joinCode}
-                                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                                maxLength={6}
-                            />
-                            <button
-                                className="p-btn"
-                                onClick={handleJoinTeam}
-                                disabled={joinCode.length < 6}
-                            >
-                                Join Team
-                            </button>
-                        </>
-                    )}
+                              <h3>Team Sessions</h3>
+                              {teamGames.length === 0 ? (
+                                  <p className="p-empty">No team sessions yet.</p>
+                              ) : (
+                                  teamGames.map((game) => (
+                                      <div key={game.id} className="p-game-item">
+                                          <span className="p-game-title">{game.title}</span>
+                                          <span className="p-game-code">{game.session_code}</span>
+                                      </div>
+                                  ))
+                              )}
+                          </>
+                      ) : (
+                          <>
+                              <p className="p-empty">You're not part of a team yet.</p>
+
+                              {(userRole === 'admin' || userRole === 'coach') && (
+                                  <div className="p-team-toggle">
+                                      <button
+                                          className={`p-toggle-btn ${teamMode === 'join' ? 'p-toggle-btn--active' : ''}`}
+                                          onClick={() => setTeamMode('join')}
+                                      >
+                                          Join Team
+                                      </button>
+                                      <button
+                                          className={`p-toggle-btn ${teamMode === 'create' ? 'p-toggle-btn--active' : ''}`}
+                                          onClick={() => setTeamMode('create')}
+                                      >
+                                          Create Team
+                                      </button>
+                                  </div>
+                              )}
+
+                              {joinError && <div className="p-error">{joinError}</div>}
+
+                              {teamMode === 'join' && (
+                                  <>
+                                      <input
+                                          className="p-input"
+                                          type="text"
+                                          placeholder="Enter team code"
+                                          value={joinCode}
+                                          onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                                          maxLength={6}
+                                      />
+                                      <button className="p-btn" onClick={handleJoinTeam} disabled={joinCode.length < 6}>
+                                          Join Team
+                                      </button>
+                                  </>
+                              )}
+
+                              {teamMode === 'create' && (
+                                  <>
+                                      <input
+                                          className="p-input"
+                                          type="text"
+                                          placeholder="Team name"
+                                          value={newTeamName}
+                                          onChange={(e) => setNewTeamName(e.target.value)}
+                                      />
+                                      <button className="p-btn" onClick={handleCreateTeam} disabled={!newTeamName.trim()}>
+                                          Create Team
+                                      </button>
+                                  </>
+                              )}
+                          </>
+                      )}
                 </div>
             </div>
         </div>

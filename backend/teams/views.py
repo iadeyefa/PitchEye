@@ -14,7 +14,7 @@ def list_teams(request):
 @api_view(['GET'])
 def get_team(request):
     team_code = request.query_params.get('code')
-    data = supabase.table('teams').select('*').eq('join_code', team_code).execute()
+    data = supabase_admin.table('teams').select('*').eq('join_code', team_code).execute()
     return Response(data.data)
 
 @api_view(['POST'])

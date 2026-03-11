@@ -174,3 +174,46 @@
     color: rgba(255, 255, 255, 0.35);
     text-transform: capitalize;
 }
+
+.p-team-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.p-toggle-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.p-toggle-btn--active {
+    background: white;
+    color: #0d0d1a;
+    border-color: white;
+}
+
+.p-btn-leave {
+    background: transparent;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: 16px;
+    transition: background 0.15s;
+}
+
+.p-btn-leave:hover {
+    background: rgba(239, 68, 68, 0.1);
+}

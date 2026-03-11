@@ -18,20 +18,43 @@ def get_team(request):
     return Response(data.data)
 
 @api_view(['POST'])
-def create_team(request): 
-    team_name = request.data.get('teamName')
-    admin_id = request.data.get('adminID')
+def create_team(request):
+    user = check_user(request.headers.get('Authorization'))
 
-    # generate some random code for team_code in teams
+    # check if user already on a team
+    profile = supabase_admin.table('profiles').select('team_id, role').eq('id', str(user.id)).execute()
+    if not profile.data:
+        return Response({'error': 'Profile not found'}, status=404)
+
+    user_profile = profile.data[0]
+    if user_profile.get('team_id'):
+        return Response({'error': 'You are already on a team. Please leave first.'}, status=400)
+
+    if user_profile.get('role') not in ['admin', 'coach']:
+        return Response({'error': 'Only admins and coaches can create teams.'}, status=403)
+
+    team_name = request.data.get('team_name', '').strip()
+    if not team_name:
+        return Response({'error': 'Team name is required'}, status=400)
+
     join_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    # create team in teams table
-    data = supabase.table('teams').insert({'name': team_name,'join_code': join_code ,'admin_id': admin_id}).execute()
+    data = supabase_admin.table('teams').insert({
+        'name': team_name,
+        'join_code': join_code,
+        'admin_id': str(user.id)
+    }).execute()
 
-    # update team_id var in the admin_id with the new team_id
-    new_team_id = data.data[0]['id']
-    supabase.table('profiles').update({'team_id': new_team_id}).eq('id', admin_id).execute()
-    
-    return Response(data.data)
+    team_id = data.data[0]['id']
+    supabase_admin.table('profiles').update({'team_id': team_id}).eq('id', str(user.id)).execute()
+
+    return Response(data.data[0], status=201)
+
+
+@api_view(['POST'])
+def leave_team(request):
+    user = check_user(request.headers.get('Authorization'))
+    supabase_admin.table('profiles').update({'team_id': None}).eq('id', str(user.id)).execute()
+    return Response({'message': 'Left team successfully'})
 
 @api_view(['POST'])
 def join_team(request):

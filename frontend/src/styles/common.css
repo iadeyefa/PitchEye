@@ -1,4 +1,4 @@
-.cg-container {
+.app-card-container {
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -7,7 +7,7 @@
     background: #0d0d1a;
 }
 
-.cg-card {
+.app-card {
     background: #1a1a2e;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
@@ -16,7 +16,7 @@
     max-width: 420px;
 }
 
-.cg-eyebrow {
+.app-card-eyebrow {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.12em;
@@ -25,20 +25,26 @@
     margin: 0 0 8px;
 }
 
-.cg-title {
+.app-card-title {
     font-size: 1.6rem;
     font-weight: 700;
     color: white;
     margin: 0 0 6px;
 }
 
-.cg-subtitle {
+.app-card-subtitle {
     font-size: 0.875rem;
     color: rgba(255, 255, 255, 0.4);
     margin: 0 0 28px;
 }
 
-.cg-error {
+.app-card-hint {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.3);
+    margin: 0;
+}
+
+.app-card-error {
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.2);
     color: #f87171;
@@ -48,19 +54,19 @@
     margin-bottom: 20px;
 }
 
-.cg-form {
+.app-card-form {
     display: flex;
     flex-direction: column;
     gap: 16px;
 }
 
-.cg-field {
+.app-card-field {
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
-.cg-label {
+.app-card-label {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.08em;
@@ -68,7 +74,7 @@
     color: rgba(255, 255, 255, 0.4);
 }
 
-.cg-input {
+.app-card-input {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
@@ -80,22 +86,22 @@
     transition: border-color 0.15s;
 }
 
-.cg-input:focus {
+.app-card-input:focus {
     outline: none;
     border-color: rgba(255, 255, 255, 0.3);
 }
 
-.cg-input:disabled {
+.app-card-input:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-.cg-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+.app-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     filter: invert(1) opacity(0.4);
     cursor: pointer;
 }
 
-.cg-btn-primary {
+.app-card-btn-primary {
     background: white;
     color: #0d0d1a;
     border: none;
@@ -109,10 +115,10 @@
     transition: opacity 0.15s;
 }
 
-.cg-btn-primary:hover:not(:disabled) { opacity: 0.9; }
-.cg-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.app-card-btn-primary:hover:not(:disabled) { opacity: 0.9; }
+.app-card-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.cg-btn-secondary {
+.app-card-btn-secondary {
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
@@ -126,53 +132,4 @@
     transition: background 0.15s;
 }
 
-.cg-btn-secondary:hover { background: rgba(255, 255, 255, 0.05); }
-
-.cg-session-block {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    padding: 16px;
-    margin: 20px 0;
-    gap: 4px;
-}
-
-.cg-session-label {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.4);
-}
-
-.cg-session-code {
-    font-size: 2.5rem;
-    font-weight: 700;
-    letter-spacing: 0.2em;
-    color: white;
-    line-height: 1;
-}
-
-.cg-qr-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-
-.cg-qr {
-    width: 150px;
-    height: 150px;
-    border-radius: 8px;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-}
-
-.cg-hint {
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.3);
-    margin: 0;
-}
+.app-card-btn-secondary:hover { background: rgba(255, 255, 255, 0.05); }

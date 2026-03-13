@@ -12,6 +12,12 @@ def list_games(request):
     return Response(data.data)
 
 @api_view(['GET'])
+def list_my_games(request):
+    user = check_user(request.headers.get('Authorization'))
+    data = supabase_admin.table('games').select('*').eq('created_by', str(user.id)).execute()
+    return Response(data.data)
+
+@api_view(['GET'])
 def get_game(request, id): 
     data = supabase_admin.table('games').select('*').eq('id', id).execute()
     return Response(data.data)

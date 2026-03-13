@@ -8,6 +8,8 @@ import Profile from "./pages/Profile";
 import Navbar from "./components/Navbar";
 import CreateGame from "./components/CreateGame";
 import { useAuth } from "./AuthContext";
+import HomeFeed from "./components/HomeFeed";
+import PostView from "./components/PostView";
 
 function App() {
   const { user, loading, logout } = useAuth();
@@ -47,15 +49,7 @@ function App() {
         path="/"
         element={
           user ? (
-            <div className="container">
-              <div className="dashboard">
-                <h1>Welcome to your PitchEye FYP!</h1>
-                <p>Email: {user.email}</p>
-                <button onClick={handleLogout}>
-                  Logout
-                </button>
-              </div>
-            </div>
+            <HomeFeed />
           ) : (
             <Navigate to="/login" replace />
           )
@@ -70,7 +64,8 @@ function App() {
       <Route path="/live" element={user ? <LivePage /> : <Navigate to="/link" replace />} />
       <Route path="/upload" element={user ? <Upload /> : <Navigate to="/upload" replace />} />
       <Route path="/profile" element={user ? <Profile /> : <Navigate to="/profile" replace />} />
-        <Route path="/games/create" element={user ? <CreateGame /> : <Navigate to="/login" replace />} />
+      <Route path="/games/create" element={user ? <CreateGame /> : <Navigate to="/login" replace />} />
+      <Route path="/post/:id" element={<PostView />} />
     </Routes>
     </>
   );

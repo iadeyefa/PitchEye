@@ -72,6 +72,10 @@ def join_team(request):
 
 @api_view(['GET'])
 def get_my_team(request):
+    from supabase import create_client
+    import os
+
+    client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     user = check_user(request.headers.get('Authorization'))
 
     profile = supabase_admin.table('profiles').select('team_id').eq('id', str(user.id)).execute()
@@ -80,14 +84,14 @@ def get_my_team(request):
 
     team_id = profile.data[0]['team_id']
 
-    team = supabase_admin.table('teams').select('*').eq('id', team_id).execute()
-    members = supabase_admin.table('profiles').select('id, email, role').eq('team_id', team_id).execute()
+    team = client.table('teams').select('*').eq('id', team_id).execute()
+    members = client.table('profiles').select('id, email, role').eq('team_id', team_id).execute()
     member_ids = [m['id'] for m in members.data]
 
     if not member_ids:
         games = []
     else:
-        games = supabase_admin.table('games').select('*').in_('created_by', member_ids).execute()
+        games = client.table('games').select('*').in_('created_by', member_ids).execute()
 
     return Response({
         'team': team.data[0],

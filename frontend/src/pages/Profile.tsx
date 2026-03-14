@@ -242,33 +242,13 @@ export default function Profile() {
                         <p className="p-empty">Loading...</p>
                     ) : team ? (
                           <>
-                              <div className="p-team-header">
+                              <button className="p-game-item" onClick={() => navigate("/team")}>
                                   <span className="p-team-name">{team.name}</span>
                                   <span className="p-game-code">{team.join_code}</span>
-                              </div>
+                              </button>
                               <button className="p-btn-leave" onClick={handleLeaveTeam}>
                                   Leave Team
                               </button>
-
-                              <h3>Members</h3>
-                              {members.map((m) => (
-                                  <div key={m.id} className="p-member-item">
-                                      <span className="p-member-email">{m.email}</span>
-                                      <span className="p-member-role">{m.role}</span>
-                                  </div>
-                              ))}
-
-                              <h3>Team Sessions</h3>
-                              {teamGames.length === 0 ? (
-                                  <p className="p-empty">No team sessions yet.</p>
-                              ) : (
-                                  teamGames.map((game) => (
-                                      <button key={game.id} className="p-game-item" onClick={() => navigate(`/games/${game.id}/`)}>
-                                          <span className="p-game-title">{game.title}</span>
-                                          <span className="p-game-code">{game.session_code}</span>
-                                      </button>
-                                  ))
-                              )}
                           </>
                       ) : (
                           <>

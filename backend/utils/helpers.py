@@ -1,5 +1,6 @@
 from utils.supabase_client import supabase
 from rest_framework.exceptions import AuthenticationFailed
+import os
 
 def _extract_bearer_token(auth_header):
     if not auth_header:
@@ -15,10 +16,16 @@ def _extract_bearer_token(auth_header):
     return parts[1].strip()
 
 def check_user(auth_header):
+    from supabase import create_client
+    from dotenv import load_dotenv
+    load_dotenv()
+
     token = _extract_bearer_token(auth_header)
 
+    client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+
     try:
-        auth_response = supabase.auth.get_user(token)
+        auth_response = client.auth.get_user(token)
         user = getattr(auth_response, 'user', None)
         if not user:
             raise AuthenticationFailed('Invalid access token')

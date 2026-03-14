@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "PitchEye QR Scanner",
+    "slug": "pitcheye-qr-scanner",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs camera access to scan QR codes"
+      }
+    },
+    "android": {
+      "permissions": ["android.permission.CAMERA"]
+    }
+  }
+}

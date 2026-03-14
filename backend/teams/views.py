@@ -98,3 +98,29 @@ def get_my_team(request):
         'members': members.data,
         'games': games.data,
     })
+
+@api_view(['GET'])
+def get_team_by_id(request, id):
+    from supabase import create_client
+    import os
+
+    client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    check_user(request.headers.get('Authorization'))
+
+    team = client.table('teams').select('*').eq('id', id).execute()
+    if not team.data:
+        return Response({'error': 'Team not found'}, status=404)
+
+    members = client.table('profiles').select('id, email, role').eq('team_id', id).execute()
+    member_ids = [m['id'] for m in members.data]
+
+    if not member_ids:
+        games_data = []
+    else:
+        games_data = client.table('games').select('*').in_('created_by', member_ids).execute().data
+
+    return Response({
+        'team': team.data[0],
+        'members': members.data,
+        'games': games_data,
+    })

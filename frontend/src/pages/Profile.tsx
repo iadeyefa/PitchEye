@@ -242,7 +242,7 @@ export default function Profile() {
                         <p className="p-empty">Loading...</p>
                     ) : team ? (
                           <>
-                              <button className="p-game-item" onClick={() => navigate("/team")}>
+                              <button className="p-game-item" onClick={() => navigate(`/teams/${team.id}`)}>
                                   <span className="p-team-name">{team.name}</span>
                                   <span className="p-game-code">{team.join_code}</span>
                               </button>

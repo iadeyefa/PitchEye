@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import "../styles/ProfilePage.css";
 import "../styles/common.css";
@@ -30,6 +30,8 @@ export default function TeamPage() {
     const [games, setGames] = useState<Game[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [userRole, setUserRole] = useState<string>("")
+    const { id } = useParams<{ id: string }>();
 
     useEffect(() => {
         fetchTeam();
@@ -41,15 +43,27 @@ export default function TeamPage() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error("Not authenticated");
 
-            const response = await fetch("http://localhost:8000/api/teams/my/", {
-                headers: { Authorization: `Bearer ${session.access_token}` },
-            });
-            if (response.status === 404) { navigate("/profile"); return; }
-            if (!response.ok) throw new Error(`Error ${response.status}`);
-            const data = await response.json();
-            setTeam(data.team);
-            setMembers(data.members);
-            setGames(data.games);
+            const [teamRes, profileRes] = await Promise.all([
+                fetch(`http://localhost:8000/api/teams/${id}/`, {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                }),
+                fetch("http://localhost:8000/api/users/get_user/", {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                }),
+            ]);
+
+            if (teamRes.status === 404) { navigate("/profile"); return; }
+            if (!teamRes.ok) throw new Error(`Error ${teamRes.status}`);
+
+            const teamData = await teamRes.json();
+            setTeam(teamData.team);
+            setMembers(teamData.members);
+            setGames(teamData.games);
+
+            if (profileRes.ok) {
+                const profileData = await profileRes.json();
+                if (profileData.length > 0) setUserRole(profileData[0].role);
+            }
         } catch (err: unknown) {
             setError((err as Error).message);
         } finally {

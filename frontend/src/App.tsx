@@ -69,7 +69,7 @@ function App() {
       <Route path="/games/create" element={user ? <CreateGame /> : <Navigate to="/login" replace />} />
       <Route path="/post/:id" element={<PostView />} />
       <Route path="/games/:id" element={user ? <GameDetail /> : <Navigate to="/login" replace />} />
-      <Route path="/team" element={user ? <TeamPage /> : <Navigate to="/login" replace />} />
+      <Route path="/teams/:id" element={user ? <TeamPage /> : <Navigate to="/login" replace />} />
     </Routes>
     </>
   );

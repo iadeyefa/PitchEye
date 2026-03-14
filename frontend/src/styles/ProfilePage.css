@@ -119,6 +119,10 @@
     margin-bottom: 8px;
 }
 
+.p-game-item:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
 .p-game-title {
     font-size: 0.9rem;
     color: white;

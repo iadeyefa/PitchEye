@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import "../styles/ProfilePage.css";
 import { useAuth } from "../AuthContext";
+import { useNavigate } from "react-router-dom";
 
 type Game = {
     id: number;
@@ -24,6 +25,7 @@ type Team = {
 
 export default function Profile() {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [newEmail, setNewEmail] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [error, setError] = useState("");
@@ -226,10 +228,10 @@ export default function Profile() {
                         <p className="p-empty">No games yet.</p>
                     ) : (
                         myGames.map((game) => (
-                            <div key={game.id} className="p-game-item">
+                            <button key={game.id} className="p-game-item" onClick={() => navigate(`/games/${game.id}/`)}>
                                 <span className="p-game-title">{game.title}</span>
                                 <span className="p-game-code">{game.session_code}</span>
-                            </div>
+                            </button>
                         ))
                     )}
                 </div>
@@ -261,10 +263,10 @@ export default function Profile() {
                                   <p className="p-empty">No team sessions yet.</p>
                               ) : (
                                   teamGames.map((game) => (
-                                      <div key={game.id} className="p-game-item">
+                                      <button key={game.id} className="p-game-item" onClick={() => navigate(`/games/${game.id}/`)}>
                                           <span className="p-game-title">{game.title}</span>
                                           <span className="p-game-code">{game.session_code}</span>
-                                      </div>
+                                      </button>
                                   ))
                               )}
                           </>

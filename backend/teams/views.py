@@ -84,7 +84,10 @@ def get_my_team(request):
     members = supabase_admin.table('profiles').select('id, email, role').eq('team_id', team_id).execute()
     member_ids = [m['id'] for m in members.data]
 
-    games = supabase_admin.table('games').select('*').in_('created_by', member_ids).execute()
+    if not member_ids:
+        games = []
+    else:
+        games = supabase_admin.table('games').select('*').in_('created_by', member_ids).execute()
 
     return Response({
         'team': team.data[0],

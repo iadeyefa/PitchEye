@@ -2,7 +2,7 @@
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    padding: 16px 12px 100px;
+    padding: 14px 12px 132px;
     min-height: 100vh;
     background: #0d0d1a;
 }
@@ -25,7 +25,7 @@
     background: #1a1a2e;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
-    padding: 20px 16px;
+    padding: 18px 16px;
     width: 100%;
     box-sizing: border-box;
 }
@@ -39,8 +39,8 @@
 
 .p-card h1 {
     color: white;
-    margin: 0 0 6px;
-    font-size: 1.75rem;
+    margin: 0 0 4px;
+    font-size: 1.65rem;
 }
 
 .p-section-title {
@@ -53,13 +53,14 @@
     font-size: 0.95rem;
     font-weight: 400;
     color: rgba(255, 255, 255, 0.6);
-    margin: 0 0 18px;
+    margin: 0 0 14px;
+    max-width: 30rem;
 }
 
 .p-email {
     font-size: 0.875rem;
     color: rgba(255, 255, 255, 0.4);
-    margin: 0 0 12px;
+    margin: 0 0 10px;
 }
 
 .p-eyebrow {
@@ -73,10 +74,10 @@
 
 .p-section-heading {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 8px;
+    margin-bottom: 14px;
 }
 
 .p-inline-link,
@@ -87,6 +88,7 @@
     cursor: pointer;
     padding: 0;
     font-size: 0.9rem;
+    line-height: 1.2;
 }
 
 .p-inline-link:hover,
@@ -95,13 +97,13 @@
 }
 
 .p-back-btn {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     text-align: left;
 }
 
 .p-stat-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
 }
 
@@ -109,14 +111,14 @@
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 14px;
-    padding: 14px 12px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
 .p-stat-value {
-    font-size: 1rem;
+    font-size: 0.98rem;
     font-weight: 700;
     color: white;
     text-transform: capitalize;
@@ -124,7 +126,7 @@
 }
 
 .p-stat-label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.42);
@@ -134,7 +136,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
 }
 
 .p-section h3 {
@@ -218,18 +220,19 @@
 
 .p-game-item {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
-    padding: 14px;
+    padding: 13px 14px;
     margin-bottom: 8px;
     width: 100%;
-    border: 1px solid rgba(255, 255, 255, 0.08);
     cursor: pointer;
     text-align: left;
     box-sizing: border-box;
+    gap: 8px;
 }
 
 .p-game-item:hover {
@@ -246,6 +249,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    width: 100%;
 }
 
 .p-game-meta {
@@ -257,6 +261,7 @@
     font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.4);
     letter-spacing: 0.1em;
+    align-self: flex-start;
 }
 
 .p-btn:disabled {
@@ -287,15 +292,16 @@
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 14px;
-    padding: 16px;
+    padding: 14px;
 }
 
 .p-team-summary {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 16px;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 14px;
+    margin-bottom: 14px;
 }
 
 .p-team-kicker,
@@ -317,33 +323,36 @@
 .p-team-code,
 .p-highlight-meta {
     color: rgba(255, 255, 255, 0.5);
-    margin: 6px 0 0;
+    margin: 4px 0 0;
     font-size: 0.9rem;
 }
 
 .p-team-banner {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 16px;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 14px;
+    margin-bottom: 14px;
 }
 
 .p-team-banner-code {
-    font-size: 1.4rem;
+    font-size: 1.8rem;
     letter-spacing: 0.12em;
-    word-break: break-word;
+    word-break: normal;
+    overflow-wrap: normal;
 }
 
 .p-highlight-card {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .p-member-item {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 10px 14px;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
@@ -374,8 +383,9 @@
 
 .p-team-toggle {
     display: flex;
+    flex-direction: column;
     gap: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
 }
 
 .p-toggle-btn {
@@ -422,21 +432,12 @@
         grid-template-columns: 1fr;
     }
 
-    .p-team-summary,
-    .p-team-banner,
-    .p-section-heading {
-        flex-direction: column;
-        align-items: flex-start;
+    .p-card h1 {
+        font-size: 1.5rem;
     }
 
-    .p-game-item,
-    .p-member-item {
-        align-items: flex-start;
-        gap: 10px;
-    }
-
-    .p-game-item {
-        flex-direction: column;
+    .p-team-banner-code {
+        font-size: 1.55rem;
     }
 }
 
@@ -474,7 +475,15 @@
         margin: 0 0 24px;
     }
 
+    .p-section-heading {
+        flex-direction: row;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
     .p-stat-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 12px;
     }
 
@@ -488,6 +497,35 @@
 
     .p-section {
         margin-bottom: 24px;
+    }
+
+    .p-game-item {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .p-game-code {
+        align-self: center;
+    }
+
+    .p-team-summary,
+    .p-team-banner {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .p-team-toggle {
+        flex-direction: row;
+        margin-bottom: 16px;
+    }
+
+    .p-member-item {
+        align-items: center;
     }
 
     .p-team-banner-code {

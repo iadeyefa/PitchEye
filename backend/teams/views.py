@@ -124,3 +124,29 @@ def get_team_by_id(request, id):
         'members': members.data,
         'games': games_data,
     })
+
+
+@api_view(['PATCH'])
+def update_team(request, id):
+    user = check_user(request.headers.get('Authorization'))
+    team_name = (request.data.get('team_name') or '').strip()
+
+    if not team_name:
+        return Response({'error': 'Team name is required'}, status=400)
+
+    profile = supabase_admin.table('profiles').select('team_id, role').eq('id', str(user.id)).execute()
+    if not profile.data:
+        return Response({'error': 'Profile not found'}, status=404)
+
+    user_profile = profile.data[0]
+    if int(user_profile.get('team_id') or 0) != int(id):
+        return Response({'error': 'You can only edit your own team'}, status=403)
+
+    if user_profile.get('role') not in ['admin', 'coach']:
+        return Response({'error': 'Only admins and coaches can edit the team name.'}, status=403)
+
+    data = supabase_admin.table('teams').update({'name': team_name}).eq('id', id).execute()
+    if not data.data:
+        return Response({'error': 'Team not found'}, status=404)
+
+    return Response(data.data[0])

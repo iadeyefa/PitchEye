@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { useAuth } from "../AuthContext";
 import "../styles/ProfilePage.css";
 import "../styles/common.css";
 
@@ -24,8 +25,12 @@ type Game = {
 };
 
 export default function TeamPage() {
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [team, setTeam] = useState<Team | null>(null);
+    const [teamNameDraft, setTeamNameDraft] = useState("");
+    const [isEditingTeamName, setIsEditingTeamName] = useState(false);
+    const [teamNameLoading, setTeamNameLoading] = useState(false);
     const [members, setMembers] = useState<Member[]>([]);
     const [games, setGames] = useState<Game[]>([]);
     const [loading, setLoading] = useState(true);
@@ -58,6 +63,7 @@ export default function TeamPage() {
 
             const teamData = await teamRes.json();
             setTeam(teamData.team);
+            setTeamNameDraft(teamData.team.name);
             setMembers(teamData.members);
             setGames(teamData.games);
 
@@ -96,6 +102,44 @@ export default function TeamPage() {
         }
     };
 
+    const handleTeamNameSave = async () => {
+        if (!team || !teamNameDraft.trim()) {
+            setError("Team name is required");
+            return;
+        }
+
+        setError("");
+        setTeamNameLoading(true);
+        try {
+            if (!supabase) throw new Error("Supabase not initialized");
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Not authenticated");
+
+            const response = await fetch(`http://localhost:8000/api/teams/${team.id}/update/`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ team_name: teamNameDraft.trim() }),
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error || "Failed to update team name");
+            }
+
+            const updatedTeam: Team = await response.json();
+            setTeam(updatedTeam);
+            setTeamNameDraft(updatedTeam.name);
+            setIsEditingTeamName(false);
+        } catch (err: unknown) {
+            setError((err as Error).message || "Failed to update team name");
+        } finally {
+            setTeamNameLoading(false);
+        }
+    };
+
     if (loading) return <div className="p-container"><div className="p-card"><p className="p-empty">Loading...</p></div></div>;
     if (error || !team) return <div className="p-container"><div className="p-card"><p className="p-empty">{error || "Team not found"}</p></div></div>;
 
@@ -107,11 +151,44 @@ export default function TeamPage() {
                         ← Back
                     </button>
 
-                    <p className="p-eyebrow">Team Workspace</p>
-                    <h1>{team.name}</h1>
-                    <p className="p-title">
-                        Manage roster, share the join code, and keep team sessions in one place.
-                    </p>
+                    <p className="p-eyebrow">Team Home</p>
+                    <div className="p-title-row">
+                        {isEditingTeamName ? (
+                            <>
+                                <input
+                                    className="p-title-input"
+                                    type="text"
+                                    value={teamNameDraft}
+                                    onChange={(e) => setTeamNameDraft(e.target.value)}
+                                    maxLength={80}
+                                />
+                                <div className="p-title-actions">
+                                    <button className="p-small-btn" onClick={handleTeamNameSave} disabled={teamNameLoading}>
+                                        {teamNameLoading ? "Saving..." : "Save"}
+                                    </button>
+                                    <button
+                                        className="p-small-btn p-small-btn--ghost"
+                                        onClick={() => {
+                                            setTeamNameDraft(team.name);
+                                            setIsEditingTeamName(false);
+                                        }}
+                                        disabled={teamNameLoading}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <h1>{team.name}</h1>
+                                {isTeamLeader && (
+                                    <button className="p-inline-link p-inline-link--tight" onClick={() => setIsEditingTeamName(true)}>
+                                        Edit Team Name
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </div>
 
                     <div className="p-team-banner">
                         <div>
@@ -119,7 +196,7 @@ export default function TeamPage() {
                             <h2 className="p-team-banner-code">{team.join_code}</h2>
                         </div>
                         <button className="p-btn p-btn--secondary" onClick={handleCopyCode}>
-                            Copy code
+                            Copy Code
                         </button>
                     </div>
 
@@ -158,7 +235,7 @@ export default function TeamPage() {
                                     <div className="p-member-copy">
                                         <span className="p-member-email">{m.email}</span>
                                         <span className="p-member-note">
-                                            {m.role === userRole ? "Same role as you" : "Active member"}
+                                            {m.id === user?.id ? "You" : m.role === userRole ? "Same role as you" : "Active member"}
                                         </span>
                                     </div>
                                     <span className="p-member-role">{m.role}</span>
@@ -171,11 +248,11 @@ export default function TeamPage() {
                         <div className="p-section-heading">
                             <div>
                                 <p className="p-eyebrow">Sessions</p>
-                                <h2 className="p-section-title">Team schedule</h2>
+                                <h2 className="p-section-title">Team Schedule</h2>
                             </div>
                             {isTeamLeader && (
-                                <button className="p-inline-link" onClick={() => navigate("/games/create")}>
-                                    Create session
+                                <button className="p-btn p-btn--secondary p-btn--inline" onClick={() => navigate("/games/create")}>
+                                    Create Session
                                 </button>
                             )}
                         </div>

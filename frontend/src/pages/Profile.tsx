@@ -17,9 +17,19 @@ type Team = {
     join_code: string;
 };
 
+type ProfileData = {
+    username?: string;
+    email?: string;
+    role?: string;
+};
+
 export default function Profile() {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [profileName, setProfileName] = useState("");
+    const [profileNameDraft, setProfileNameDraft] = useState("");
+    const [isEditingProfileName, setIsEditingProfileName] = useState(false);
+    const [profileNameLoading, setProfileNameLoading] = useState(false);
     const [newEmail, setNewEmail] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [error, setError] = useState("");
@@ -72,8 +82,13 @@ export default function Profile() {
             headers: { Authorization: `Bearer ${token}` },
         });
         if (profileRes.ok) {
-            const profileData = await profileRes.json();
-            if (profileData.length > 0) setUserRole(profileData[0].role);
+            const profileData: ProfileData[] = await profileRes.json();
+            if (profileData.length > 0) setUserRole(profileData[0].role || "");
+            if (profileData.length > 0) {
+                const resolvedName = profileData[0].username?.trim() || profileData[0].email?.split("@")[0] || user?.email?.split("@")[0] || "Profile";
+                setProfileName(resolvedName);
+                setProfileNameDraft(resolvedName);
+            }
         }
 
         const response = await fetch("http://localhost:8000/api/teams/my/", {
@@ -186,16 +201,82 @@ export default function Profile() {
         }
     };
 
+    const handleProfileNameSave = async () => {
+        if (!profileNameDraft.trim()) {
+            setError("Name is required");
+            return;
+        }
+
+        setError("");
+        setSuccess("");
+        setProfileNameLoading(true);
+        try {
+            const token = await getToken();
+            const response = await fetch("http://localhost:8000/api/users/update_user/", {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ username: profileNameDraft.trim() }),
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error || "Failed to update name");
+            }
+
+            setProfileName(profileNameDraft.trim());
+            setSuccess("Name updated.");
+            setIsEditingProfileName(false);
+        } catch (err: unknown) {
+            setError((err as Error).message || "Failed to update name");
+        } finally {
+            setProfileNameLoading(false);
+        }
+    };
+
     return (
         <div className="p-container">
             <div className="p-layout">
                 <section className="p-card p-card--hero">
                     <p className="p-eyebrow">Profile</p>
-                    <h1>Account hub</h1>
+                    <div className="p-title-row">
+                        {isEditingProfileName ? (
+                            <>
+                                <input
+                                    className="p-title-input"
+                                    type="text"
+                                    value={profileNameDraft}
+                                    onChange={(e) => setProfileNameDraft(e.target.value)}
+                                    maxLength={60}
+                                />
+                                <div className="p-title-actions">
+                                    <button className="p-small-btn" onClick={handleProfileNameSave} disabled={profileNameLoading}>
+                                        {profileNameLoading ? "Saving..." : "Save"}
+                                    </button>
+                                    <button
+                                        className="p-small-btn p-small-btn--ghost"
+                                        onClick={() => {
+                                            setProfileNameDraft(profileName);
+                                            setIsEditingProfileName(false);
+                                        }}
+                                        disabled={profileNameLoading}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <h1>{profileName || user?.email?.split("@")[0] || "Profile"}</h1>
+                                <button className="p-inline-link p-inline-link--tight" onClick={() => setIsEditingProfileName(true)}>
+                                    Edit Name
+                                </button>
+                            </>
+                        )}
+                    </div>
                     <p className="p-email">{user?.email}</p>
-                    <p className="p-title">
-                        Keep personal settings here. Team operations live on the dedicated team page.
-                    </p>
 
                     <div className="p-stat-grid">
                         <div className="p-stat-card">
@@ -218,7 +299,7 @@ export default function Profile() {
                         <div className="p-section-heading">
                             <div>
                                 <p className="p-eyebrow">Account</p>
-                                <h2 className="p-section-title">Personal settings</h2>
+                                <h2 className="p-section-title">Personal Settings</h2>
                             </div>
                         </div>
 
@@ -258,10 +339,10 @@ export default function Profile() {
                         <div className="p-section-heading">
                             <div>
                                 <p className="p-eyebrow">Activity</p>
-                                <h2 className="p-section-title">My sessions</h2>
+                                <h2 className="p-section-title">My Sessions</h2>
                             </div>
-                            <button className="p-inline-link" onClick={() => navigate("/games/create")}>
-                                Create session
+                            <button className="p-btn p-btn--secondary p-btn--inline" onClick={() => navigate("/games/create")}>
+                                Create Session
                             </button>
                         </div>
 
@@ -279,7 +360,7 @@ export default function Profile() {
                                                 className="p-btn p-btn--secondary"
                                                 onClick={() => navigate(`/games/${nextGame.id}`)}
                                             >
-                                                Open session
+                                                Open Session
                                             </button>
                                         </>
                                     ) : (
@@ -328,7 +409,7 @@ export default function Profile() {
                         <div className="p-section-heading">
                             <div>
                                 <p className="p-eyebrow">Team Access</p>
-                                <h2 className="p-section-title">Team membership</h2>
+                                <h2 className="p-section-title">Team Membership</h2>
                             </div>
                         </div>
 
@@ -336,14 +417,14 @@ export default function Profile() {
                             <p className="p-empty">Loading...</p>
                         ) : team ? (
                             <>
-                                <div className="p-team-summary">
+                                <div className="p-team-summary p-team-summary--membership">
                                     <div>
                                         <p className="p-team-kicker">Current team</p>
                                         <h3 className="p-team-heading">{team.name}</h3>
                                         <p className="p-team-code">Code: {team.join_code}</p>
                                     </div>
-                                    <button className="p-btn p-btn--secondary" onClick={() => navigate(`/teams/${team.id}`)}>
-                                        Open team page
+                                    <button className="p-btn p-btn--secondary p-btn--team-summary" onClick={() => navigate(`/teams/${team.id}`)}>
+                                        Open Team Page
                                     </button>
                                 </div>
                                 <button className="p-btn-leave" onClick={handleLeaveTeam}>

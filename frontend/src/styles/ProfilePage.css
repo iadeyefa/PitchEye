@@ -2,43 +2,139 @@
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    padding: 40px 20px 100px;
+    padding: 16px 12px 100px;
     min-height: 100vh;
     background: #0d0d1a;
+}
+
+.p-layout {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.p-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
 .p-card {
     background: #1a1a2e;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
-    padding: 32px 24px;
+    padding: 20px 16px;
     width: 100%;
-    max-width: 420px;
+    box-sizing: border-box;
+}
+
+.p-card--hero {
+    background:
+        radial-gradient(circle at top right, rgba(114, 186, 255, 0.18), transparent 30%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+        #1a1a2e;
 }
 
 .p-card h1 {
     color: white;
-    margin: 0 0 8px;
+    margin: 0 0 6px;
+    font-size: 1.75rem;
+}
+
+.p-section-title {
+    color: white;
+    margin: 4px 0 0;
+    font-size: 1.1rem;
 }
 
 .p-title {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 400;
     color: rgba(255, 255, 255, 0.6);
-    margin: 0 0 28px;
+    margin: 0 0 18px;
 }
 
 .p-email {
     font-size: 0.875rem;
     color: rgba(255, 255, 255, 0.4);
-    margin: 0 0 28px;
+    margin: 0 0 12px;
+}
+
+.p-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.42);
+    margin: 0;
+}
+
+.p-section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.p-inline-link,
+.p-back-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.9rem;
+}
+
+.p-inline-link:hover,
+.p-back-btn:hover {
+    color: white;
+}
+
+.p-back-btn {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.p-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.p-stat-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.p-stat-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: white;
+    text-transform: capitalize;
+    word-break: break-word;
+}
+
+.p-stat-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.42);
 }
 
 .p-section {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    margin-bottom: 24px;
+    margin-bottom: 18px;
 }
 
 .p-section h3 {
@@ -54,8 +150,8 @@
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
-    padding: 12px 14px;
-    font-size: 0.95rem;
+    padding: 14px;
+    font-size: 1rem;
     color: white;
     width: 100%;
     box-sizing: border-box;
@@ -72,8 +168,9 @@
     color: #0d0d1a;
     border: none;
     border-radius: 8px;
-    padding: 11px;
-    font-size: 0.9rem;
+    min-height: 48px;
+    padding: 12px 14px;
+    font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
     width: 100%;
@@ -81,6 +178,17 @@
 }
 
 .p-btn:hover { opacity: 0.9; }
+
+.p-btn--secondary {
+    background: rgba(255, 255, 255, 0.06);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.p-btn--secondary:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
 
 .p-error {
     background: rgba(239, 68, 68, 0.1);
@@ -115,18 +223,34 @@
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
-    padding: 12px 14px;
+    padding: 14px;
     margin-bottom: 8px;
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    text-align: left;
+    box-sizing: border-box;
 }
 
 .p-game-item:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
 }
 
 .p-game-title {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     color: white;
     font-weight: 500;
+}
+
+.p-game-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.p-game-meta {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.45);
 }
 
 .p-game-code {
@@ -157,6 +281,64 @@
     color: white;
 }
 
+.p-team-summary,
+.p-team-banner,
+.p-highlight-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 16px;
+}
+
+.p-team-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.p-team-kicker,
+.p-highlight-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.42);
+    margin: 0 0 8px;
+}
+
+.p-team-heading,
+.p-highlight-title,
+.p-team-banner-code {
+    color: white;
+    margin: 0;
+}
+
+.p-team-code,
+.p-highlight-meta {
+    color: rgba(255, 255, 255, 0.5);
+    margin: 6px 0 0;
+    font-size: 0.9rem;
+}
+
+.p-team-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.p-team-banner-code {
+    font-size: 1.4rem;
+    letter-spacing: 0.12em;
+    word-break: break-word;
+}
+
+.p-highlight-card {
+    margin-bottom: 20px;
+}
+
 .p-member-item {
     display: flex;
     justify-content: space-between;
@@ -168,9 +350,20 @@
     margin-bottom: 8px;
 }
 
+.p-member-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
 .p-member-email {
     font-size: 0.875rem;
     color: rgba(255, 255, 255, 0.7);
+}
+
+.p-member-note {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.35);
 }
 
 .p-member-role {
@@ -187,7 +380,8 @@
 
 .p-toggle-btn {
     flex: 1;
-    padding: 10px;
+    min-height: 46px;
+    padding: 12px 10px;
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: transparent;
@@ -209,8 +403,9 @@
     border: 1px solid rgba(239, 68, 68, 0.3);
     color: #f87171;
     border-radius: 8px;
-    padding: 10px;
-    font-size: 0.875rem;
+    min-height: 46px;
+    padding: 12px;
+    font-size: 0.95rem;
     font-weight: 500;
     cursor: pointer;
     width: 100%;
@@ -220,4 +415,82 @@
 
 .p-btn-leave:hover {
     background: rgba(239, 68, 68, 0.1);
+}
+
+@media (max-width: 420px) {
+    .p-stat-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .p-team-summary,
+    .p-team-banner,
+    .p-section-heading {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .p-game-item,
+    .p-member-item {
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .p-game-item {
+        flex-direction: column;
+    }
+}
+
+@media (min-width: 768px) {
+    .p-container {
+        padding: 28px 20px 100px;
+    }
+
+    .p-layout {
+        max-width: 1100px;
+        gap: 20px;
+    }
+
+    .p-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+    }
+
+    .p-card {
+        padding: 32px 24px;
+    }
+
+    .p-card h1 {
+        font-size: 2rem;
+        margin: 0 0 8px;
+    }
+
+    .p-section-title {
+        font-size: 1.25rem;
+    }
+
+    .p-title {
+        font-size: 1rem;
+        margin: 0 0 24px;
+    }
+
+    .p-stat-grid {
+        gap: 12px;
+    }
+
+    .p-stat-card {
+        padding: 16px;
+    }
+
+    .p-stat-value {
+        font-size: 1.15rem;
+    }
+
+    .p-section {
+        margin-bottom: 24px;
+    }
+
+    .p-team-banner-code {
+        font-size: 1.75rem;
+    }
 }

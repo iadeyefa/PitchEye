@@ -176,3 +176,65 @@
     color: rgba(255, 255, 255, 0.3);
     margin: 0;
 }
+
+.cg-session-actions {
+    margin: 20px 0 24px;
+}
+
+.cg-expired-note {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+}
+
+.cg-clips-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cg-clips-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cg-clips-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.cg-clip-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    text-decoration: none;
+}
+
+.cg-clip-title {
+    display: block;
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.cg-clip-meta {
+    display: block;
+    margin-top: 4px;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.8rem;
+}
+
+.cg-clip-link {
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.85rem;
+}

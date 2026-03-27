@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from django.shortcuts import render
 from utils.supabase_client import supabase, supabase_admin
 from rest_framework.decorators import api_view
@@ -5,22 +6,59 @@ from rest_framework.response import Response
 from utils.helpers import check_user
 from utils.qr_generator import generate_session_code, generate_qr_code, check_session_code_exists
 
-        
+QR_CODE_TTL = timedelta(days=7)
+
+
+def _parse_timestamp(value):
+    if not value:
+        return None
+    normalized = value.replace('Z', '+00:00')
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def is_qr_code_active(game):
+    created_at = _parse_timestamp(game.get('created_at'))
+    if not created_at:
+        return True
+    return datetime.now(timezone.utc) <= created_at + QR_CODE_TTL
+
+
+def has_session_started(game):
+    game_time = _parse_timestamp(game.get('game_time'))
+    if not game_time:
+        return True
+    return datetime.now(timezone.utc) >= game_time
+
+
+def serialize_game(game):
+    serialized = dict(game)
+    serialized['qr_code_active'] = is_qr_code_active(game)
+    serialized['session_started'] = has_session_started(game)
+    serialized['can_accept_uploads'] = serialized['qr_code_active'] and serialized['session_started']
+    return serialized
+
+
 @api_view(['GET'])
 def list_games(request):
     data = supabase_admin.table('games').select('*').execute()
-    return Response(data.data)
+    return Response([serialize_game(game) for game in data.data])
 
 @api_view(['GET'])
 def list_my_games(request):
     user = check_user(request.headers.get('Authorization'))
     data = supabase_admin.table('games').select('*').eq('created_by', str(user.id)).execute()
-    return Response(data.data)
+    return Response([serialize_game(game) for game in data.data])
 
 @api_view(['GET'])
 def get_game(request, id): 
     data = supabase_admin.table('games').select('*').eq('id', id).execute()
-    return Response(data.data)
+    return Response([serialize_game(game) for game in data.data])
 
 @api_view(['POST'])
 def create_game(request):
@@ -42,14 +80,41 @@ def create_game(request):
     }
 
     data = supabase_admin.table('games').insert(payload).execute()
-    return Response(data.data[0], status=201)
+    return Response(serialize_game(data.data[0]), status=201)
 
 @api_view(['GET'])
 def get_game_by_session_code(request, session_code):
     data = supabase.table('games').select('*').eq('session_code', session_code.upper()).execute()
     if len(data.data) == 0:
         return Response({'error': 'Invalid session code'}, status=404)
-    return Response(data.data[0])
+    if not is_qr_code_active(data.data[0]):
+        return Response({'error': 'This session QR code has expired'}, status=410)
+    return Response(serialize_game(data.data[0]))
+
+
+@api_view(['GET'])
+def list_attachable_games(request):
+    user = check_user(request.headers.get('Authorization'))
+    profile = supabase_admin.table('profiles').select('team_id').eq('id', str(user.id)).execute()
+    team_id = profile.data[0].get('team_id') if profile.data else None
+
+    own_games = supabase_admin.table('games').select('*').eq('created_by', str(user.id)).execute().data
+    attachable_games = {game['id']: game for game in own_games}
+
+    if team_id:
+        team_members = supabase_admin.table('profiles').select('id').eq('team_id', team_id).execute().data
+        member_ids = [member['id'] for member in team_members]
+        if member_ids:
+            team_games = supabase_admin.table('games').select('*').in_('created_by', member_ids).execute().data
+            for game in team_games:
+                attachable_games[game['id']] = game
+
+    ordered_games = sorted(
+        [serialize_game(game) for game in attachable_games.values() if is_qr_code_active(game) and has_session_started(game)],
+        key=lambda game: game.get('game_time') or '',
+        reverse=True,
+    )
+    return Response(ordered_games)
 
 """
 TODO: 

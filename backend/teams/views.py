@@ -85,7 +85,7 @@ def get_my_team(request):
     team_id = profile.data[0]['team_id']
 
     team = client.table('teams').select('*').eq('id', team_id).execute()
-    members = client.table('profiles').select('id, email, role').eq('team_id', team_id).execute()
+    members = client.table('profiles').select('id, email, role, username').eq('team_id', team_id).execute()
     member_ids = [m['id'] for m in members.data]
 
     if not member_ids:
@@ -111,7 +111,7 @@ def get_team_by_id(request, id):
     if not team.data:
         return Response({'error': 'Team not found'}, status=404)
 
-    members = client.table('profiles').select('id, email, role').eq('team_id', id).execute()
+    members = client.table('profiles').select('id, email, role, username').eq('team_id', id).execute()
     member_ids = [m['id'] for m in members.data]
 
     if not member_ids:

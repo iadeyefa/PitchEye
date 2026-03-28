@@ -10,6 +10,8 @@ import CreateGame from "./components/CreateGame";
 import { useAuth } from "./AuthContext";
 import HomeFeed from "./components/HomeFeed";
 import PostView from "./components/PostView";
+import GameDetail from "./components/GameDetail";
+import TeamPage from "./pages/TeamPage";
 
 function App() {
   const { user, loading, logout } = useAuth();
@@ -66,6 +68,8 @@ function App() {
       <Route path="/profile" element={user ? <Profile /> : <Navigate to="/profile" replace />} />
       <Route path="/games/create" element={user ? <CreateGame /> : <Navigate to="/login" replace />} />
       <Route path="/post/:id" element={<PostView />} />
+      <Route path="/games/:id" element={user ? <GameDetail /> : <Navigate to="/login" replace />} />
+      <Route path="/teams/:id" element={user ? <TeamPage /> : <Navigate to="/login" replace />} />
     </Routes>
     </>
   );

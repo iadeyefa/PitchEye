@@ -1,34 +1,91 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { supabase } from "../supabaseClient";
 import "../styles/common.css";
 import "../styles/UploadClip.css";
 
-type ClipProps = {
+type GameOption = {
     id: number;
-    caption: string;
-    tagged_players: string[];
-    video_url: string;
-    created_at: string;
+    title: string;
+    game_time: string;
+    session_code: string;
+    qr_code_active?: boolean;
+    session_started?: boolean;
+    can_accept_uploads?: boolean;
 };
 
-// TODO: Delete once endpoint added in
-const DUMMY_RESPONSE: ClipProps = {
-    id: 1,
-    caption: "",
-    tagged_players: [],
-    video_url: "https://example.com/clips/dummy.mp4",
-    created_at: new Date().toISOString(),
+type TeamMember = {
+    id: string;
+    email: string;
+    role: string;
+    username?: string;
+};
+
+type ClipProps = {
+    id: number;
+    video_url: string;
+    uploaded_at?: string;
+    game_id: number;
+    game_title?: string;
+    original_filename?: string;
 };
 
 export default function UploadClip() {
+    const navigate = useNavigate();
+    const location = useLocation();
     const [video, setVideo] = useState<File | null>(null);
     const [caption, setCaption] = useState("");
     const [tagInput, setTagInput] = useState("");
     const [tags, setTags] = useState<string[]>([]);
+    const [games, setGames] = useState<GameOption[]>([]);
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+    const [selectedGameId, setSelectedGameId] = useState("");
+    const [gamesLoading, setGamesLoading] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [result, setResult] = useState<ClipProps | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const preselectedGameId = new URLSearchParams(location.search).get("gameId");
+
+    useEffect(() => {
+        const fetchGames = async () => {
+            try {
+                if (!supabase) throw new Error("Supabase not initialized");
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) throw new Error("Not authenticated");
+
+                const [gamesResponse, teamResponse] = await Promise.all([
+                    fetch("http://localhost:8000/api/games/attachable/", {
+                        headers: { Authorization: `Bearer ${session.access_token}` },
+                    }),
+                    fetch("http://localhost:8000/api/teams/my/", {
+                        headers: { Authorization: `Bearer ${session.access_token}` },
+                    }),
+                ]);
+                if (!gamesResponse.ok) throw new Error(`Error ${gamesResponse.status}`);
+                const data: GameOption[] = await gamesResponse.json();
+                setGames(data);
+
+                if (preselectedGameId && data.some((game) => String(game.id) === preselectedGameId)) {
+                    setSelectedGameId(preselectedGameId);
+                } else if (data.length === 1) {
+                    setSelectedGameId(String(data[0].id));
+                }
+
+                if (teamResponse.ok) {
+                    const teamData = await teamResponse.json();
+                    setTeamMembers(teamData.members || []);
+                }
+            } catch (err: unknown) {
+                setError((err as Error).message || "Unable to load sessions");
+            } finally {
+                setGamesLoading(false);
+            }
+        };
+
+        fetchGames();
+    }, [preselectedGameId]);
 
     // Tagging players
     // TODO: Incorporate player exists validation 
@@ -44,6 +101,24 @@ export default function UploadClip() {
     };
 
     const removeTag = (t: string) => setTags((prev) => prev.filter((tag) => tag !== t));
+    const normalizeMemberLabel = (member: TeamMember) =>
+        (member.username?.trim() || member.email.split("@")[0]).replace(/^@/, "");
+    const filteredMembers = tagInput.trim()
+        ? teamMembers.filter((member) => {
+            const query = tagInput.trim().toLowerCase().replace(/^@/, "");
+            const label = normalizeMemberLabel(member).toLowerCase();
+            return (
+                !tags.includes(normalizeMemberLabel(member)) &&
+                (label.includes(query) || member.email.toLowerCase().includes(query))
+            );
+        }).slice(0, 5)
+        : [];
+
+    const addSuggestedTag = (member: TeamMember) => {
+        const label = normalizeMemberLabel(member);
+        if (!tags.includes(label)) setTags((prev) => [...prev, label]);
+        setTagInput("");
+    };
 
     // submitting
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -51,19 +126,43 @@ export default function UploadClip() {
         setError("");
 
         if (!video) { setError("Please select a video to upload"); return; }
+        if (!selectedGameId) { setError("Please choose a game or practice session"); return; }
 
         setLoading(true);
-        
-        // TODO: update with the actual endpoint once that exists
-        await new Promise((r) => setTimeout(r, 1500));
-        setLoading(false);
+        try {
+            if (!supabase) throw new Error("Supabase not initialized");
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Not authenticated");
 
-        setResult({
-            ...DUMMY_RESPONSE,
-            caption: caption.trim() || "Untitled Clip",
-            tagged_players: tags,
-            created_at: new Date().toISOString(),
-        });
+            const formData = new FormData();
+            formData.append("video", video);
+            formData.append("game_id", selectedGameId);
+            formData.append("device_id", "web-upload");
+            formData.append("device_name", "Web Upload");
+            formData.append("recorded_at", new Date().toISOString());
+            formData.append("caption", caption.trim());
+            formData.append("tagged_players", JSON.stringify(tags));
+
+            const response = await fetch("http://localhost:8000/api/videos/upload/", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error || "Failed to upload clip");
+            }
+
+            const clip: ClipProps = await response.json();
+            setResult(clip);
+        } catch (err: unknown) {
+            setError((err as Error).message || "Failed to upload clip");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const reset = () => {
@@ -73,27 +172,27 @@ export default function UploadClip() {
         setTags([]);
         setTagInput("");
         setError("");
+        setSelectedGameId(preselectedGameId || "");
     };
 
     if (result) {
         return (
             <div className="app-card-container">
-                <div className="app-card-card">
+                <div className="app-card">
                     <p className="app-card-eyebrow">Clip Posted</p>
-                    <h2 className="app-card-title">{result.caption}</h2>
-                    {result.tagged_players.length > 0 && (
-                        <p className="app-card-subtitle">
-                            Tagged: {result.tagged_players.map((p) => `@${p}`).join(", ")}
-                        </p>
-                    )}
+                    <h2 className="app-card-title">{result.original_filename || video?.name || "Clip uploaded"}</h2>
+                    {result.game_title && <p className="app-card-subtitle">Attached to: {result.game_title}</p>}
                     <p className="app-card-subtitle">
-                        {new Date(result.created_at).toLocaleString(undefined, {
+                        {new Date(result.uploaded_at || Date.now()).toLocaleString(undefined, {
                             dateStyle: "medium", timeStyle: "short",
                         })}
                     </p>
                     <div className="uc-action-row">
                         <button className="app-card-btn-secondary" onClick={reset}>
                             + Upload Another
+                        </button>
+                        <button className="app-card-btn-primary" onClick={() => navigate(`/games/${result.game_id}`)}>
+                            Open Session
                         </button>
                     </div>
                 </div>
@@ -105,11 +204,35 @@ export default function UploadClip() {
         <div className="app-card-container">
             <div className="app-card">
                 <h1 className="app-card-title">Upload Clip</h1>
-                <p className="app-card-subtitle">Share a video from a recent match or practice</p>
+                <p className="app-card-subtitle">Share a video and attach it to a game or practice session.</p>
 
                 {error && <div className="app-card-error">{error}</div>}
 
                 <form onSubmit={handleSubmit} className="app-card-form">
+                    <div className="app-card-field">
+                        <label className="app-card-label" htmlFor="clip-session">Session</label>
+                        <select
+                            id="clip-session"
+                            className="app-card-input uc-select"
+                            value={selectedGameId}
+                            onChange={(e) => setSelectedGameId(e.target.value)}
+                            disabled={loading || gamesLoading || games.length === 0}
+                        >
+                            <option value="">{gamesLoading ? "Loading sessions..." : "Select a session"}</option>
+                            {games.map((game) => (
+                                <option key={game.id} value={game.id}>
+                                    {game.title} · {new Date(game.game_time).toLocaleDateString()} · {game.session_code}
+                                </option>
+                            ))}
+                        </select>
+                        {games.length === 0 && !gamesLoading && (
+                            <span className="uc-hint">Create a session that has started and still has an active QR code before uploading a clip.</span>
+                        )}
+                        {games.length > 0 && (
+                            <span className="uc-hint">Only sessions that have started and still have active QR codes can receive new clips.</span>
+                        )}
+                    </div>
+
                     <div className="app-card-field">
                         <label className="app-card-label">Video</label>
                         <div
@@ -193,13 +316,29 @@ export default function UploadClip() {
                                 disabled={loading}
                             />
                         </div>
+                        {filteredMembers.length > 0 && (
+                            <div className="uc-tag-suggestions">
+                                {filteredMembers.map((member) => (
+                                    <button
+                                        key={member.id}
+                                        type="button"
+                                        className="uc-tag-suggestion"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => addSuggestedTag(member)}
+                                    >
+                                        <span className="uc-tag-suggestion-name">@{normalizeMemberLabel(member)}</span>
+                                        <span className="uc-tag-suggestion-meta">{member.email}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                         <span className="uc-hint">Press Enter or comma to add a tag</span>
                     </div>
 
                     <button
                         type="submit"
                         className="app-card-btn-primary"
-                        disabled={loading || !video}
+                        disabled={loading || !video || !selectedGameId || gamesLoading}
                     >
                         {loading ? "Uploading..." : "Post Clip"}
                     </button>

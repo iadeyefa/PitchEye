@@ -100,6 +100,38 @@
 
 .uc-tag-input:disabled { cursor: not-allowed; }
 
+.uc-tag-suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.uc-tag-suggestion {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 10px 12px;
+    color: white;
+    cursor: pointer;
+    text-align: left;
+}
+
+.uc-tag-suggestion-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.uc-tag-suggestion-meta {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.45);
+}
+
 .uc-hint {
     font-size: 11px;
     color: #aaa;
@@ -112,7 +144,12 @@
     flex-wrap: wrap;
 }
 
-.uc-action-row .app-btn-secondary {
+.uc-action-row .app-card-btn-secondary,
+.uc-action-row .app-card-btn-primary {
     flex: 1;
     text-align: center;
+}
+
+.uc-select {
+    appearance: none;
 }

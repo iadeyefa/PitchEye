@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import "../styles/ProfilePage.css";
 import { useAuth } from "../AuthContext";
+import { useNavigate } from "react-router-dom";
 
 type Game = {
     id: number;
@@ -10,28 +11,31 @@ type Game = {
     game_time: string;
 };
 
-type Member = {
-    id: string;
-    email: string;
-    role: string;
-};
-
 type Team = {
     id: number;
     name: string;
     join_code: string;
 };
 
+type ProfileData = {
+    username?: string;
+    email?: string;
+    role?: string;
+};
+
 export default function Profile() {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const [profileName, setProfileName] = useState("");
+    const [profileNameDraft, setProfileNameDraft] = useState("");
+    const [isEditingProfileName, setIsEditingProfileName] = useState(false);
+    const [profileNameLoading, setProfileNameLoading] = useState(false);
     const [newEmail, setNewEmail] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
     const [myGames, setMyGames] = useState<Game[]>([]);
     const [team, setTeam] = useState<Team | null>(null);
-    const [members, setMembers] = useState<Member[]>([]);
-    const [teamGames, setTeamGames] = useState<Game[]>([]);
     const [joinCode, setJoinCode] = useState("");
     const [joinError, setJoinError] = useState("");
     const [loading, setLoading] = useState(true);
@@ -78,8 +82,13 @@ export default function Profile() {
             headers: { Authorization: `Bearer ${token}` },
         });
         if (profileRes.ok) {
-            const profileData = await profileRes.json();
-            if (profileData.length > 0) setUserRole(profileData[0].role);
+            const profileData: ProfileData[] = await profileRes.json();
+            if (profileData.length > 0) setUserRole(profileData[0].role || "");
+            if (profileData.length > 0) {
+                const resolvedName = profileData[0].username?.trim() || profileData[0].email?.split("@")[0] || user?.email?.split("@")[0] || "Profile";
+                setProfileName(resolvedName);
+                setProfileNameDraft(resolvedName);
+            }
         }
 
         const response = await fetch("http://localhost:8000/api/teams/my/", {
@@ -89,8 +98,6 @@ export default function Profile() {
         if (!response.ok) throw new Error(`Error ${response.status}`);
         const data = await response.json();
         setTeam(data.team);
-        setMembers(data.members);
-        setTeamGames(data.games);
     };
 
     const handleCreateTeam = async () => {
@@ -124,8 +131,6 @@ export default function Profile() {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setTeam(null);
-            setMembers([]);
-            setTeamGames([]);
         } catch (err: unknown) {
             setError((err as Error).message);
         }
@@ -147,13 +152,28 @@ export default function Profile() {
                 const err = await response.json();
                 throw new Error(err.error || "Invalid team code");
             }
-            const data = await response.json();
+            await response.json();
             setJoinCode("");
             await fetchMyTeam(token);
         } catch (err: unknown) {
             setJoinError((err as Error).message);
         }
     };
+
+    const isTeamLeader = userRole === "admin" || userRole === "coach";
+    const upcomingGames = myGames
+        .filter((game) => new Date(game.game_time).getTime() >= Date.now())
+        .sort((a, b) => new Date(a.game_time).getTime() - new Date(b.game_time).getTime());
+    const pastGames = myGames
+        .filter((game) => new Date(game.game_time).getTime() < Date.now())
+        .sort((a, b) => new Date(b.game_time).getTime() - new Date(a.game_time).getTime());
+    const nextGame = upcomingGames[0] ?? null;
+
+    const formatGameTime = (gameTime: string) =>
+        new Date(gameTime).toLocaleString(undefined, {
+            dateStyle: "medium",
+            timeStyle: "short",
+        });
 
     const handleChangeEmail = async () => {
         if (!supabase) return;
@@ -181,148 +201,294 @@ export default function Profile() {
         }
     };
 
+    const handleProfileNameSave = async () => {
+        if (!profileNameDraft.trim()) {
+            setError("Name is required");
+            return;
+        }
+
+        setError("");
+        setSuccess("");
+        setProfileNameLoading(true);
+        try {
+            const token = await getToken();
+            const response = await fetch("http://localhost:8000/api/users/update_user/", {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ username: profileNameDraft.trim() }),
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error || "Failed to update name");
+            }
+
+            setProfileName(profileNameDraft.trim());
+            setSuccess("Name updated.");
+            setIsEditingProfileName(false);
+        } catch (err: unknown) {
+            setError((err as Error).message || "Failed to update name");
+        } finally {
+            setProfileNameLoading(false);
+        }
+    };
+
     return (
         <div className="p-container">
-            <div className="p-card">
-                <h1>Profile</h1>
-                <p className="p-email">{user?.email}</p>
+            <div className="p-layout">
+                <section className="p-card p-card--hero">
+                    <p className="p-eyebrow">Profile</p>
+                    <div className="p-title-row">
+                        {isEditingProfileName ? (
+                            <>
+                                <input
+                                    className="p-title-input"
+                                    type="text"
+                                    value={profileNameDraft}
+                                    onChange={(e) => setProfileNameDraft(e.target.value)}
+                                    maxLength={60}
+                                />
+                                <div className="p-title-actions">
+                                    <button className="p-small-btn" onClick={handleProfileNameSave} disabled={profileNameLoading}>
+                                        {profileNameLoading ? "Saving..." : "Save"}
+                                    </button>
+                                    <button
+                                        className="p-small-btn p-small-btn--ghost"
+                                        onClick={() => {
+                                            setProfileNameDraft(profileName);
+                                            setIsEditingProfileName(false);
+                                        }}
+                                        disabled={profileNameLoading}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <h1>{profileName || user?.email?.split("@")[0] || "Profile"}</h1>
+                                <button className="p-inline-link p-inline-link--tight" onClick={() => setIsEditingProfileName(true)}>
+                                    Edit Name
+                                </button>
+                            </>
+                        )}
+                    </div>
+                    <p className="p-email">{user?.email}</p>
 
-                {error && <div className="p-error">{error}</div>}
-                {success && <div className="p-success">{success}</div>}
+                    <div className="p-stat-grid">
+                        <div className="p-stat-card">
+                            <span className="p-stat-value">{myGames.length}</span>
+                            <span className="p-stat-label">Sessions</span>
+                        </div>
+                        <div className="p-stat-card">
+                            <span className="p-stat-value">{team ? "1" : "0"}</span>
+                            <span className="p-stat-label">Teams</span>
+                        </div>
+                        <div className="p-stat-card">
+                            <span className="p-stat-value">{userRole || "member"}</span>
+                            <span className="p-stat-label">Role</span>
+                        </div>
+                    </div>
+                </section>
 
-                <div className="p-section">
-                    <h3>Change Email</h3>
-                    <input
-                        className="p-input"
-                        type="email"
-                        placeholder="New email"
-                        value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                    />
-                    <button className="p-btn" onClick={handleChangeEmail} disabled={!isValidEmail(newEmail)}>
-                        Update Email
-                    </button>
-                </div>
-
-                <div className="p-section">
-                    <h3>Change Password</h3>
-                    <input
-                        className="p-input"
-                        type="password"
-                        placeholder="New password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                    />
-                    <button className="p-btn" onClick={handleChangePassword} disabled={newPassword.length < 6}>
-                        Update Password
-                    </button>
-                </div>
-
-                <div className="p-section">
-                    <h3>My Game/Practice Sessions</h3>
-                    {loading ? (
-                        <p className="p-empty">Loading...</p>
-                    ) : myGames.length === 0 ? (
-                        <p className="p-empty">No games yet.</p>
-                    ) : (
-                        myGames.map((game) => (
-                            <div key={game.id} className="p-game-item">
-                                <span className="p-game-title">{game.title}</span>
-                                <span className="p-game-code">{game.session_code}</span>
+                <div className="p-grid">
+                    <section className="p-card">
+                        <div className="p-section-heading">
+                            <div>
+                                <p className="p-eyebrow">Account</p>
+                                <h2 className="p-section-title">Personal Settings</h2>
                             </div>
-                        ))
-                    )}
-                </div>
+                        </div>
 
-                <div className="p-section">
-                    <h3>My Team</h3>
-                    {loading ? (
-                        <p className="p-empty">Loading...</p>
-                    ) : team ? (
-                          <>
-                              <div className="p-team-header">
-                                  <span className="p-team-name">{team.name}</span>
-                                  <span className="p-game-code">{team.join_code}</span>
-                              </div>
-                              <button className="p-btn-leave" onClick={handleLeaveTeam}>
-                                  Leave Team
-                              </button>
+                        {error && <div className="p-error">{error}</div>}
+                        {success && <div className="p-success">{success}</div>}
 
-                              <h3>Members</h3>
-                              {members.map((m) => (
-                                  <div key={m.id} className="p-member-item">
-                                      <span className="p-member-email">{m.email}</span>
-                                      <span className="p-member-role">{m.role}</span>
-                                  </div>
-                              ))}
+                        <div className="p-section">
+                            <h3>Change Email</h3>
+                            <input
+                                className="p-input"
+                                type="email"
+                                placeholder="New email"
+                                value={newEmail}
+                                onChange={(e) => setNewEmail(e.target.value)}
+                            />
+                            <button className="p-btn" onClick={handleChangeEmail} disabled={!isValidEmail(newEmail)}>
+                                Update Email
+                            </button>
+                        </div>
 
-                              <h3>Team Sessions</h3>
-                              {teamGames.length === 0 ? (
-                                  <p className="p-empty">No team sessions yet.</p>
-                              ) : (
-                                  teamGames.map((game) => (
-                                      <div key={game.id} className="p-game-item">
-                                          <span className="p-game-title">{game.title}</span>
-                                          <span className="p-game-code">{game.session_code}</span>
-                                      </div>
-                                  ))
-                              )}
-                          </>
-                      ) : (
-                          <>
-                              <p className="p-empty">You're not part of a team yet.</p>
+                        <div className="p-section">
+                            <h3>Change Password</h3>
+                            <input
+                                className="p-input"
+                                type="password"
+                                placeholder="New password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                            />
+                            <button className="p-btn" onClick={handleChangePassword} disabled={newPassword.length < 6}>
+                                Update Password
+                            </button>
+                        </div>
+                    </section>
 
-                              {(userRole === 'admin' || userRole === 'coach') && (
-                                  <div className="p-team-toggle">
-                                      <button
-                                          className={`p-toggle-btn ${teamMode === 'join' ? 'p-toggle-btn--active' : ''}`}
-                                          onClick={() => setTeamMode('join')}
-                                      >
-                                          Join Team
-                                      </button>
-                                      <button
-                                          className={`p-toggle-btn ${teamMode === 'create' ? 'p-toggle-btn--active' : ''}`}
-                                          onClick={() => setTeamMode('create')}
-                                      >
-                                          Create Team
-                                      </button>
-                                  </div>
-                              )}
+                    <section className="p-card">
+                        <div className="p-section-heading">
+                            <div>
+                                <p className="p-eyebrow">Activity</p>
+                                <h2 className="p-section-title">My Sessions</h2>
+                            </div>
+                            <button className="p-btn p-btn--secondary p-btn--inline" onClick={() => navigate("/games/create")}>
+                                Create Session
+                            </button>
+                        </div>
 
-                              {joinError && <div className="p-error">{joinError}</div>}
+                        {loading ? (
+                            <p className="p-empty">Loading...</p>
+                        ) : (
+                            <>
+                                <div className="p-highlight-card">
+                                    <p className="p-highlight-label">Next up</p>
+                                    {nextGame ? (
+                                        <>
+                                            <h3 className="p-highlight-title">{nextGame.title}</h3>
+                                            <p className="p-highlight-meta">{formatGameTime(nextGame.game_time)}</p>
+                                            <button
+                                                className="p-btn p-btn--secondary"
+                                                onClick={() => navigate(`/games/${nextGame.id}`)}
+                                            >
+                                                Open Session
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <p className="p-empty">No upcoming sessions yet.</p>
+                                    )}
+                                </div>
 
-                              {teamMode === 'join' && (
-                                  <>
-                                      <input
-                                          className="p-input"
-                                          type="text"
-                                          placeholder="Enter team code"
-                                          value={joinCode}
-                                          onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                                          maxLength={6}
-                                      />
-                                      <button className="p-btn" onClick={handleJoinTeam} disabled={joinCode.length < 6}>
-                                          Join Team
-                                      </button>
-                                  </>
-                              )}
+                                <div className="p-section">
+                                    <h3>Upcoming</h3>
+                                    {upcomingGames.length === 0 ? (
+                                        <p className="p-empty">Nothing scheduled yet.</p>
+                                    ) : (
+                                        upcomingGames.slice(0, 4).map((game) => (
+                                            <button key={game.id} className="p-game-item" onClick={() => navigate(`/games/${game.id}`)}>
+                                                <div className="p-game-copy">
+                                                    <span className="p-game-title">{game.title}</span>
+                                                    <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
+                                                </div>
+                                                <span className="p-game-code">{game.session_code}</span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
 
-                              {teamMode === 'create' && (
-                                  <>
-                                      <input
-                                          className="p-input"
-                                          type="text"
-                                          placeholder="Team name"
-                                          value={newTeamName}
-                                          onChange={(e) => setNewTeamName(e.target.value)}
-                                      />
-                                      <button className="p-btn" onClick={handleCreateTeam} disabled={!newTeamName.trim()}>
-                                          Create Team
-                                      </button>
-                                  </>
-                              )}
-                          </>
-                      )}
+                                <div className="p-section">
+                                    <h3>Recent</h3>
+                                    {pastGames.length === 0 ? (
+                                        <p className="p-empty">No completed sessions yet.</p>
+                                    ) : (
+                                        pastGames.slice(0, 3).map((game) => (
+                                            <button key={game.id} className="p-game-item" onClick={() => navigate(`/games/${game.id}`)}>
+                                                <div className="p-game-copy">
+                                                    <span className="p-game-title">{game.title}</span>
+                                                    <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
+                                                </div>
+                                                <span className="p-game-code">{game.session_code}</span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </section>
+
+                    <section className="p-card">
+                        <div className="p-section-heading">
+                            <div>
+                                <p className="p-eyebrow">Team Access</p>
+                                <h2 className="p-section-title">Team Membership</h2>
+                            </div>
+                        </div>
+
+                        {loading ? (
+                            <p className="p-empty">Loading...</p>
+                        ) : team ? (
+                            <>
+                                <div className="p-team-summary p-team-summary--membership">
+                                    <div>
+                                        <p className="p-team-kicker">Current team</p>
+                                        <h3 className="p-team-heading">{team.name}</h3>
+                                        <p className="p-team-code">Code: {team.join_code}</p>
+                                    </div>
+                                    <button className="p-btn p-btn--secondary p-btn--team-summary" onClick={() => navigate(`/teams/${team.id}`)}>
+                                        Open Team Page
+                                    </button>
+                                </div>
+                                <button className="p-btn-leave" onClick={handleLeaveTeam}>
+                                    Leave Team
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <p className="p-empty">You are not part of a team yet.</p>
+
+                                {isTeamLeader && (
+                                    <div className="p-team-toggle">
+                                        <button
+                                            className={`p-toggle-btn ${teamMode === 'join' ? 'p-toggle-btn--active' : ''}`}
+                                            onClick={() => setTeamMode('join')}
+                                        >
+                                            Join Team
+                                        </button>
+                                        <button
+                                            className={`p-toggle-btn ${teamMode === 'create' ? 'p-toggle-btn--active' : ''}`}
+                                            onClick={() => setTeamMode('create')}
+                                        >
+                                            Create Team
+                                        </button>
+                                    </div>
+                                )}
+
+                                {joinError && <div className="p-error">{joinError}</div>}
+
+                                {teamMode === 'join' && (
+                                    <div className="p-section">
+                                        <h3>Join with code</h3>
+                                        <input
+                                            className="p-input"
+                                            type="text"
+                                            placeholder="Enter team code"
+                                            value={joinCode}
+                                            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                                            maxLength={6}
+                                        />
+                                        <button className="p-btn" onClick={handleJoinTeam} disabled={joinCode.length < 6}>
+                                            Join Team
+                                        </button>
+                                    </div>
+                                )}
+
+                                {teamMode === 'create' && isTeamLeader && (
+                                    <div className="p-section">
+                                        <h3>Create team</h3>
+                                        <input
+                                            className="p-input"
+                                            type="text"
+                                            placeholder="Team name"
+                                            value={newTeamName}
+                                            onChange={(e) => setNewTeamName(e.target.value)}
+                                        />
+                                        <button className="p-btn" onClick={handleCreateTeam} disabled={!newTeamName.trim()}>
+                                            Create Team
+                                        </button>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </section>
                 </div>
             </div>
         </div>

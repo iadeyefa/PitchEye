@@ -72,6 +72,10 @@ def join_team(request):
 
 @api_view(['GET'])
 def get_my_team(request):
+    from supabase import create_client
+    import os
+
+    client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     user = check_user(request.headers.get('Authorization'))
 
     profile = supabase_admin.table('profiles').select('team_id').eq('id', str(user.id)).execute()
@@ -80,14 +84,69 @@ def get_my_team(request):
 
     team_id = profile.data[0]['team_id']
 
-    team = supabase_admin.table('teams').select('*').eq('id', team_id).execute()
-    members = supabase_admin.table('profiles').select('id, email, role').eq('team_id', team_id).execute()
+    team = client.table('teams').select('*').eq('id', team_id).execute()
+    members = client.table('profiles').select('id, email, role, username').eq('team_id', team_id).execute()
     member_ids = [m['id'] for m in members.data]
 
-    games = supabase_admin.table('games').select('*').in_('created_by', member_ids).execute()
+    if not member_ids:
+        games = []
+    else:
+        games = client.table('games').select('*').in_('created_by', member_ids).execute()
 
     return Response({
         'team': team.data[0],
         'members': members.data,
         'games': games.data,
     })
+
+@api_view(['GET'])
+def get_team_by_id(request, id):
+    from supabase import create_client
+    import os
+
+    client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    check_user(request.headers.get('Authorization'))
+
+    team = client.table('teams').select('*').eq('id', id).execute()
+    if not team.data:
+        return Response({'error': 'Team not found'}, status=404)
+
+    members = client.table('profiles').select('id, email, role, username').eq('team_id', id).execute()
+    member_ids = [m['id'] for m in members.data]
+
+    if not member_ids:
+        games_data = []
+    else:
+        games_data = client.table('games').select('*').in_('created_by', member_ids).execute().data
+
+    return Response({
+        'team': team.data[0],
+        'members': members.data,
+        'games': games_data,
+    })
+
+
+@api_view(['PATCH'])
+def update_team(request, id):
+    user = check_user(request.headers.get('Authorization'))
+    team_name = (request.data.get('team_name') or '').strip()
+
+    if not team_name:
+        return Response({'error': 'Team name is required'}, status=400)
+
+    profile = supabase_admin.table('profiles').select('team_id, role').eq('id', str(user.id)).execute()
+    if not profile.data:
+        return Response({'error': 'Profile not found'}, status=404)
+
+    user_profile = profile.data[0]
+    if int(user_profile.get('team_id') or 0) != int(id):
+        return Response({'error': 'You can only edit your own team'}, status=403)
+
+    if user_profile.get('role') not in ['admin', 'coach']:
+        return Response({'error': 'Only admins and coaches can edit the team name.'}, status=403)
+
+    data = supabase_admin.table('teams').update({'name': team_name}).eq('id', id).execute()
+    if not data.data:
+        return Response({'error': 'Team not found'}, status=404)
+
+    return Response(data.data[0])

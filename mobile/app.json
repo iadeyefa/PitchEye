@@ -1,18 +1,33 @@
 {
   "expo": {
-    "name": "PitchEye QR Scanner",
+    "name": "PitchEye",
     "slug": "pitcheye-qr-scanner",
     "version": "1.0.0",
     "sdkVersion": "54.0.0",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "This app needs camera access to scan QR codes"
+        "NSCameraUsageDescription": "This app needs camera access to scan QR codes and record live streams",
+        "NSMicrophoneUsageDescription": "This app needs microphone access to record live streams"
       }
     },
     "android": {
-      "permissions": ["android.permission.CAMERA"]
+      "package": "com.pitcheye.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET"
+      ]
+    },
+    "newArchEnabled": false,
+    "extra": {
+      "eas": {
+        "projectId": "ea409398-59c6-4ad9-adef-304f90cbcbc2"
+      }
     }
   }
 }

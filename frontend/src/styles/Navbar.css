@@ -2,7 +2,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #000000
+  background-color: #12122a
 }
 
 .desktop-nav ul {
@@ -12,7 +12,8 @@
 }
 
 .desktop-nav a {
-  color: white;
+  color: #f0f0f0;  
+  text-decoration: none;
 }
 
 .mobile-nav {
@@ -21,7 +22,8 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: #1a1a2e;
+  background: #12122a;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
   justify-content: space-around;
   padding: 12px 0;
   z-index: 100;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import "../styles/LiveFeed.css";
 import { supabase } from "../supabaseClient";
 
@@ -13,14 +13,12 @@ type GameProps = {
  
 type LiveStream = {
   id: number;
-  username: string;
   streamUrl?: string;
-  viewerCount: number;
 };
 
 // TODO: replace with API call — GET /games/:id/streams
 const DUMMY_STREAMS: LiveStream[] = [
-  { id: 1, username: "soccer_parent_2", viewerCount: 4 }
+  { id: 1 }
 ];
 
 function LiveVideoCard({ stream }: { stream: LiveStream }) {
@@ -51,10 +49,6 @@ function LiveVideoCard({ stream }: { stream: LiveStream }) {
           </div>
         )}
         <span className="lf-live-badge">● LIVE</span>
-        <span className="lf-viewer-count">{stream.viewerCount} watching</span>
-      </div>
-      <div className="lf-card-footer">
-        <span className="lf-username">@{stream.username}</span>
       </div>
     </div>
   );
@@ -83,7 +77,7 @@ export default function LiveFeed() {
           const data: GameProps = await res.json();
           setGame(data);
         } else {
-          // viewer clicked Live tab → find ongoing game for their team
+          // viewer clicked Live tab : find ongoing game for their team
           const res = await fetch("http://localhost:8000/api/games/join/", { headers });
           if (res.status === 404) {
             setGame(null); // no live game right now, not an error
@@ -107,7 +101,6 @@ export default function LiveFeed() {
   if (loading) return <div className="lf-container"><div className="lf-inner"><p className="lf-state-msg">Loading...</p></div></div>;
   if (error)   return <div className="lf-container"><div className="lf-inner"><p className="lf-state-msg lf-state-msg--error">{error}</p></div></div>;
   if (!game)   return <div className="lf-container"><div className="lf-inner"><p className="lf-state-msg">No live game right now.</p></div></div>;
-  console.log(game)
   return (
     <div className="lf-container">
         <h1 className="lf-title">{game.title}</h1> 

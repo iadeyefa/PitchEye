@@ -1,5 +1,4 @@
-from datetime import timedelta
-from django.utils import timezone
+from datetime import datetime, time, timezone
 from django.shortcuts import render
 from utils.supabase_client import supabase, supabase_admin
 from rest_framework.decorators import api_view
@@ -62,9 +61,10 @@ def get_session_by_team(request):
     if not profile.data or not profile.data[0].get('team_id'):
         return Response({'error': 'No team found'}, status=404)
 
-    now = timezone.now()
-    window_start = now - timedelta(hours=3)
-    window_end = now + timedelta(minutes=30)
+    now = datetime.now(timezone.utc)
+    today_start = datetime.combine(now.date(), time.min).replace(tzinfo=timezone.utc).isoformat()
+    today_end = datetime.combine(now.date(), time.max).replace(tzinfo=timezone.utc).isoformat()
+
     
     team_id = profile.data[0]['team_id']
     members = supabase_admin.table('profiles').select('id, email, role').eq('team_id', team_id).execute()
@@ -72,8 +72,8 @@ def get_session_by_team(request):
     live_games = supabase_admin.table('games')\
         .select('*')\
         .in_('created_by', member_ids)\
-        .gte('game_time', window_start.isoformat())\
-        .lte('game_time', window_end.isoformat())\
+        .gte('game_time', today_start)\
+        .lte('game_time', today_end)\
         .execute()
 
     return Response({'game': live_games.data})

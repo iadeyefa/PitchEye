@@ -90,18 +90,6 @@
   border-radius: 4px;
 }
 
-.lf-viewer-count {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background: rgba(0, 0, 0, 0.6);
-  color: rgba(255, 255, 255, 0.25);
-  font-size: 0.7rem;
-  padding: 3px 8px;
-  border-radius: 20px;
-  backdrop-filter: blur(4px);
-}
-
 .lf-card-footer {
   display: flex;
   align-items: center;

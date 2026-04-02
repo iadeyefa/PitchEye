@@ -1,3 +1,4 @@
+from datetime import timedelta, timezone
 from django.shortcuts import render
 from utils.supabase_client import supabase, supabase_admin
 from rest_framework.decorators import api_view
@@ -50,6 +51,32 @@ def get_game_by_session_code(request, session_code):
     if len(data.data) == 0:
         return Response({'error': 'Invalid session code'}, status=404)
     return Response(data.data[0])
+
+
+@api_view(['GET'])
+def get_session_by_team(request):
+    user = check_user(request.headers.get('Authorization'))
+
+    profile = supabase_admin.table('profiles').select('team_id').eq('id', str(user.id)).execute()
+    if not profile.data or not profile.data[0].get('team_id'):
+        return Response({'error': 'No team found'}, status=404)
+
+    now = timezone.now()
+    window_start = now - timedelta(hours=3)
+    window_end = now + timedelta(minutes=30)
+    
+    team_id = profile.data[0]['team_id']
+    members = supabase_admin.table('profiles').select('id, email, role').eq('team_id', team_id).execute()
+    member_ids = [m['id'] for m in members.data]
+    live_games = supabase_admin.table('games')\
+    .select('*')\
+    .in_('created_by', member_ids)\
+    .gte('game_time', window_start.isoformat())\
+    .lte('game_time', window_end.isoformat())\
+    .execute()
+
+    return Response({'live': live_games.data})
+
 
 """
 TODO: 

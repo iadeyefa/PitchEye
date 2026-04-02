@@ -1,4 +1,5 @@
-from datetime import timedelta, timezone
+from datetime import timedelta
+from django.utils import timezone
 from django.shortcuts import render
 from utils.supabase_client import supabase, supabase_admin
 from rest_framework.decorators import api_view
@@ -69,13 +70,13 @@ def get_session_by_team(request):
     members = supabase_admin.table('profiles').select('id, email, role').eq('team_id', team_id).execute()
     member_ids = [m['id'] for m in members.data]
     live_games = supabase_admin.table('games')\
-    .select('*')\
-    .in_('created_by', member_ids)\
-    .gte('game_time', window_start.isoformat())\
-    .lte('game_time', window_end.isoformat())\
-    .execute()
+        .select('*')\
+        .in_('created_by', member_ids)\
+        .gte('game_time', window_start.isoformat())\
+        .lte('game_time', window_end.isoformat())\
+        .execute()
 
-    return Response({'live': live_games.data})
+    return Response({'game': live_games.data})
 
 
 """

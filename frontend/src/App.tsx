@@ -2,7 +2,6 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
 import Login from "./pages/login";
-import LivePage from "./pages/LivePage";
 import Upload from "./components/UploadClip";
 import Profile from "./pages/Profile";
 import Navbar from "./components/Navbar";
@@ -10,6 +9,7 @@ import CreateGame from "./components/CreateGame";
 import { useAuth } from "./AuthContext";
 import HomeFeed from "./components/HomeFeed";
 import PostView from "./components/PostView";
+import LiveFeed from "./components/LiveFeed";
 
 function App() {
   const { user, loading, logout } = useAuth();
@@ -61,11 +61,12 @@ function App() {
         path="*"
         element={<Navigate to={user ? "/" : "/login"} replace />}
       />
-      <Route path="/live" element={user ? <LivePage /> : <Navigate to="/link" replace />} />
+      <Route path="/live" element={user ? <LiveFeed /> : <Navigate to="/link" replace />} />
       <Route path="/upload" element={user ? <Upload /> : <Navigate to="/upload" replace />} />
       <Route path="/profile" element={user ? <Profile /> : <Navigate to="/profile" replace />} />
       <Route path="/games/create" element={user ? <CreateGame /> : <Navigate to="/login" replace />} />
       <Route path="/post/:id" element={<PostView />} />
+      <Route path="/join/:sessionCode" element={<LiveFeed />} />
     </Routes>
     </>
   );

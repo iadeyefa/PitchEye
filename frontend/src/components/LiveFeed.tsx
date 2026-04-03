@@ -14,13 +14,10 @@ type GameProps = {
 type LiveStream = {
   id: number;
   streamUrl?: string;
+  currentGame: GameProps;
 };
 
-// TODO: replace with API call — GET /games/:id/streams
-const DUMMY_STREAMS: LiveStream[] = [
-  { id: 1 }
-];
-
+// TODO update livevideo card with video playback
 function LiveVideoCard({ stream }: { stream: LiveStream }) {
   return (
     <div className="lf-card">
@@ -84,8 +81,8 @@ export default function LiveFeed() {
             return;
           }
           if (!res.ok) throw new Error("Failed to load live game");
-          const data: GameProps = await res.json();
-          setGame(data);
+          const data = await res.json();
+          setGame(data.game[0]);
         }
       } catch (e: unknown) {
         setError((e as Error).message);
@@ -105,9 +102,12 @@ export default function LiveFeed() {
     <div className="lf-container">
         <h1 className="lf-title">{game.title}</h1> 
         <div className="lf-feed">
-          {DUMMY_STREAMS.map((s) => (
-            <LiveVideoCard key={s.id} stream={s} />
-          ))}
+        <p className="lf-game-time">
+          {new Date(game.game_time).toLocaleDateString(undefined, {
+            month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+          })}
+        </p>
+            <LiveVideoCard stream={{id: 1, currentGame: game}} />
         </div>
     </div>
   );

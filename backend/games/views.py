@@ -75,7 +75,10 @@ def get_session_by_team(request):
         .gte('game_time', today_start)\
         .lte('game_time', today_end)\
         .execute()
-
+    
+    if not live_games.data:
+        return Response({'error': 'No live game'}, status=404)
+        
     return Response({'game': live_games.data})
 
 

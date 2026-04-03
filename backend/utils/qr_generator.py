@@ -39,14 +39,7 @@ def generate_qr_code(session_code, base_url="http://localhost:3000"):
             file_options={"content-type": "image/png"}
         )
 
-        qr_code_dict = supabase.storage.from_('qr-codes').create_signed_url(
-            file_path,
-            expires_in=604800  # 7 days
-        )
-
-        qr_code_url = qr_code_dict["signedURL"]
-
-        return qr_code_url, buffer
+        return file_path, buffer
     except Exception as e:
         print(f"Error uploading QR code: {e}")
         raise

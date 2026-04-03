@@ -11,6 +11,16 @@ from games.views import has_session_started, is_qr_code_active, serialize_game
 VIDEO_BUCKET = os.getenv("SUPABASE_VIDEO_BUCKET", "match-videos")
 
 
+def _optional_float(value):
+    if value in (None, ""):
+        return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _sign_video_url(video_path):
     if not video_path:
         return video_path
@@ -96,6 +106,10 @@ def upload_video(request):
         'device_id': request.data.get('device_id') or 'web-upload',
         'device_name': request.data.get('device_name') or 'Web Upload',
         'recorded_at': request.data.get('recorded_at') or datetime.now(timezone.utc).isoformat(),
+        'duration': _optional_float(request.data.get('duration')),
+        'time_offset': _optional_float(request.data.get('time_offset')),
+        'start_time': _optional_float(request.data.get('start_time')),
+        'end_time': _optional_float(request.data.get('end_time')),
         'is_processed': False,
     }
 

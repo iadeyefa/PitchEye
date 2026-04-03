@@ -22,6 +22,7 @@ type Game = {
     title: string;
     session_code: string;
     game_time: string;
+    qr_code_active?: boolean;
 };
 
 export default function TeamPage() {
@@ -272,7 +273,9 @@ export default function TeamPage() {
                                             <span className="p-game-title">{game.title}</span>
                                             <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
                                         </div>
-                                        <span className="p-game-code">{game.session_code}</span>
+                                        <span className={`p-game-code ${game.qr_code_active === false ? "p-game-code--inactive" : ""}`}>
+                                            {game.qr_code_active === false ? "Inactive" : game.session_code}
+                                        </span>
                                     </button>
                                 ))
                             )}
@@ -293,7 +296,9 @@ export default function TeamPage() {
                                             <span className="p-game-title">{game.title}</span>
                                             <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
                                         </div>
-                                        <span className="p-game-code">{game.session_code}</span>
+                                        <span className={`p-game-code ${game.qr_code_active === false ? "p-game-code--inactive" : ""}`}>
+                                            {game.qr_code_active === false ? "Inactive" : game.session_code}
+                                        </span>
                                     </button>
                                 ))
                             )}

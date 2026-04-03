@@ -30,6 +30,11 @@ type ClipProps = {
     original_filename?: string;
 };
 
+type VideoMetadata = {
+    duration: number | null;
+    recordedAt: string | null;
+};
+
 export default function UploadClip() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -44,6 +49,7 @@ export default function UploadClip() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [result, setResult] = useState<ClipProps | null>(null);
+    const [videoMetadata, setVideoMetadata] = useState<VideoMetadata>({ duration: null, recordedAt: null });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const preselectedGameId = new URLSearchParams(location.search).get("gameId");
@@ -86,6 +92,57 @@ export default function UploadClip() {
 
         fetchGames();
     }, [preselectedGameId]);
+
+    useEffect(() => {
+        if (!video) {
+            setVideoMetadata({ duration: null, recordedAt: null });
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(video);
+        const probe = document.createElement("video");
+
+        const cleanup = () => {
+            URL.revokeObjectURL(objectUrl);
+            probe.removeAttribute("src");
+            probe.load();
+        };
+
+        probe.preload = "metadata";
+        probe.src = objectUrl;
+
+        const handleLoadedMetadata = () => {
+            const nextDuration = Number.isFinite(probe.duration) && probe.duration > 0 ? probe.duration : null;
+            const nextRecordedAt = Number.isFinite(video.lastModified) && video.lastModified > 0
+                ? new Date(video.lastModified).toISOString()
+                : null;
+
+            setVideoMetadata({
+                duration: nextDuration,
+                recordedAt: nextRecordedAt,
+            });
+            cleanup();
+        };
+
+        const handleError = () => {
+            setVideoMetadata({
+                duration: null,
+                recordedAt: Number.isFinite(video.lastModified) && video.lastModified > 0
+                    ? new Date(video.lastModified).toISOString()
+                    : null,
+            });
+            cleanup();
+        };
+
+        probe.onloadedmetadata = handleLoadedMetadata;
+        probe.onerror = handleError;
+
+        return () => {
+            probe.onloadedmetadata = null;
+            probe.onerror = null;
+            cleanup();
+        };
+    }, [video]);
 
     // Tagging players
     // TODO: Incorporate player exists validation 
@@ -134,14 +191,32 @@ export default function UploadClip() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error("Not authenticated");
 
+            const selectedGame = games.find((game) => String(game.id) === selectedGameId);
+            const recordedAt = videoMetadata.recordedAt || new Date().toISOString();
+            const duration = videoMetadata.duration;
+            const timeOffset = selectedGame
+                ? (new Date(recordedAt).getTime() - new Date(selectedGame.game_time).getTime()) / 1000
+                : null;
+
             const formData = new FormData();
             formData.append("video", video);
             formData.append("game_id", selectedGameId);
             formData.append("device_id", "web-upload");
             formData.append("device_name", "Web Upload");
-            formData.append("recorded_at", new Date().toISOString());
+            formData.append("recorded_at", recordedAt);
             formData.append("caption", caption.trim());
             formData.append("tagged_players", JSON.stringify(tags));
+            if (duration && duration > 0) {
+                formData.append("duration", String(duration));
+            }
+            if (timeOffset !== null && Number.isFinite(timeOffset)) {
+                const safeOffset = Math.max(0, timeOffset);
+                formData.append("time_offset", String(safeOffset));
+                formData.append("start_time", String(safeOffset));
+                if (duration && duration > 0) {
+                    formData.append("end_time", String(safeOffset + duration));
+                }
+            }
 
             const response = await fetch("http://localhost:8000/api/videos/upload/", {
                 method: "POST",
@@ -251,6 +326,11 @@ export default function UploadClip() {
                                     <span className="uc-file-size">
                                         {(video.size / 1024 / 1024).toFixed(1)} MB
                                     </span>
+                                    {videoMetadata.duration && (
+                                        <span className="uc-file-size">
+                                            {Math.round(videoMetadata.duration)} sec
+                                        </span>
+                                    )}
                                 </div>
                             ) : (
                                 <span className="uc-dropzone-hint">

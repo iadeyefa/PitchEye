@@ -323,6 +323,12 @@
     align-self: flex-start;
 }
 
+.p-game-code--inactive {
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.28);
+}
+
 .p-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;

@@ -36,6 +36,12 @@
     margin-bottom: 12px;
 }
 
+.pv-author-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .pv-avatar {
     width: 40px;
     height: 40px;
@@ -57,6 +63,11 @@
     color: #f0f0f0;
 }
 
+.pv-game {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.42);
+}
+
 .pv-video-wrapper {
     position: relative;
     width: 100%;
@@ -65,20 +76,13 @@
     margin-bottom: 12px;
 }
 
-.pv-thumbnail {
+.pv-video {
     width: 100%;
     aspect-ratio: 16/9;
-    background: rgba(255, 255, 255, 0.04);
+    object-fit: contain;
+    background: #06070f;
     border: 1px solid rgba(255, 255, 255, 0.06);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.pv-thumb-icon {
-    width: 52px;
-    height: 52px;
-    color: rgba(255, 255, 255, 0.15);
+    display: block;
 }
 
 .pv-tag-toggle {
@@ -175,73 +179,8 @@
     margin-top: 2px;
 }
 
-.pv-comments-section {
-    background: #1a1a2e;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.pv-comments-list {
-    display: flex;
-    flex-direction: column;
-}
-
-.pv-comment {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.pv-comment-text {
-    font-size: 0.875rem;
-    color: rgba(255, 255, 255, 0.7);
-    flex: 1;
-    line-height: 1.4;
-}
-
-.pv-comment-user {
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.3);
-    white-space: nowrap;
-    flex-shrink: 0;
-    margin-top: 2px;
-}
-
-.pv-comment-form {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.pv-comment-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    outline: none;
-    font-size: 0.875rem;
+.pv-state {
+    font-size: 0.95rem;
     color: rgba(255, 255, 255, 0.6);
+    margin: 24px 0 0;
 }
-
-.pv-comment-input::placeholder { color: rgba(255, 255, 255, 0.25); }
-
-.pv-comment-submit {
-    background: white;
-    color: #0d0d1a;
-    border: none;
-    border-radius: 6px;
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.15s;
-    flex-shrink: 0;
-}
-
-.pv-comment-submit:hover:not(:disabled) { opacity: 0.85; }
-.pv-comment-submit:disabled { opacity: 0.35; cursor: not-allowed; }

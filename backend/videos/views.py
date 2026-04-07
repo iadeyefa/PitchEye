@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 import os
 import uuid
 from utils.supabase_client import supabase, supabase_admin
@@ -40,6 +41,75 @@ def _serialize_clip(clip):
     serialized["video_url"] = _sign_video_url(clip.get("video_url"))
     return serialized
 
+
+def _normalize_tagged_players(value):
+    if value in (None, ""):
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            parsed = [part.strip() for part in value.split(",")]
+        if isinstance(parsed, list):
+            return [str(item).strip() for item in parsed if str(item).strip()]
+    return []
+
+
+def _enrich_clips(clips):
+    serialized_clips = [_serialize_clip(clip) for clip in clips]
+    if not serialized_clips:
+        return []
+
+    uploaded_by_ids = list({clip.get("uploaded_by") for clip in serialized_clips if clip.get("uploaded_by")})
+    game_ids = list({clip.get("game_id") for clip in serialized_clips if clip.get("game_id") is not None})
+
+    profiles_by_id = {}
+    games_by_id = {}
+
+    if uploaded_by_ids:
+        profiles = supabase_admin.table('profiles').select('id, username, email, team_id').in_('id', uploaded_by_ids).execute().data
+        profiles_by_id = {profile['id']: profile for profile in profiles}
+
+    if game_ids:
+        games = supabase_admin.table('games').select('*').in_('id', game_ids).execute().data
+        games_by_id = {game['id']: game for game in games}
+
+    enriched = []
+    for clip in serialized_clips:
+        profile = profiles_by_id.get(clip.get("uploaded_by"))
+        game = games_by_id.get(clip.get("game_id"))
+        username = (
+            (profile or {}).get("username")
+            or ((profile or {}).get("email") or "teammate").split("@")[0]
+        )
+
+        clip["tagged_players"] = _normalize_tagged_players(clip.get("tagged_players"))
+        clip["caption"] = (clip.get("caption") or "").strip()
+        clip["uploader"] = {
+            "id": clip.get("uploaded_by"),
+            "username": username,
+            "email": (profile or {}).get("email"),
+            "team_id": (profile or {}).get("team_id"),
+        }
+        clip["game"] = serialize_game(game) if game else None
+        clip["game_title"] = game.get("title") if game else None
+        enriched.append(clip)
+
+    return enriched
+
+
+def _get_team_member_ids_for_user(user):
+    profile = supabase_admin.table('profiles').select('team_id').eq('id', str(user.id)).execute()
+    team_id = profile.data[0].get('team_id') if profile.data else None
+    if not team_id:
+        return [], None
+
+    members = supabase_admin.table('profiles').select('id').eq('team_id', team_id).execute().data
+    member_ids = [member['id'] for member in members if member.get('id')]
+    return member_ids, team_id
+
 @api_view(['GET'])
 def list_videos(request):
     data = supabase.table('video_clips').select('*').execute()
@@ -47,14 +117,41 @@ def list_videos(request):
 
 @api_view(['GET'])
 def get_video(request, video_id): 
-    data = supabase.table('video_clips').select('*').eq('id', video_id).execute()
-    return Response([_serialize_clip(clip) for clip in data.data])
+    user = check_user(request.headers.get('Authorization'))
+    member_ids, team_id = _get_team_member_ids_for_user(user)
+
+    if not team_id or not member_ids:
+        return Response({'error': 'Video not found'}, status=404)
+
+    data = (
+        supabase_admin
+        .table('video_clips')
+        .select('*')
+        .eq('id', video_id)
+        .in_('uploaded_by', member_ids)
+        .execute()
+    )
+    if not data.data:
+        return Response({'error': 'Video not found'}, status=404)
+    return Response(_enrich_clips(data.data)[0])
 
 
 @api_view(['GET'])
 def list_videos_for_game(request, game_id):
     data = supabase_admin.table('video_clips').select('*').eq('game_id', game_id).order('uploaded_at', desc=True).execute()
     return Response([_serialize_clip(clip) for clip in data.data])
+
+
+@api_view(['GET'])
+def list_team_feed(request):
+    user = check_user(request.headers.get('Authorization'))
+    member_ids, team_id = _get_team_member_ids_for_user(user)
+
+    if not team_id or not member_ids:
+        return Response([])
+
+    data = supabase_admin.table('video_clips').select('*').in_('uploaded_by', member_ids).order('uploaded_at', desc=True).execute()
+    return Response(_enrich_clips(data.data))
 
 
 @api_view(['POST'])
@@ -115,7 +212,7 @@ def upload_video(request):
 
     inserted = supabase_admin.table('video_clips').insert(payload).execute()
     clip = inserted.data[0]
-    serialized = _serialize_clip(clip)
+    serialized = _enrich_clips([clip])[0]
     serialized['game_title'] = game.data[0].get('title')
     serialized['game'] = serialize_game(game.data[0])
     serialized['original_filename'] = video.name

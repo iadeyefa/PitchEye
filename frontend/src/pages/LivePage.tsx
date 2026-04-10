@@ -1,8 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import LiveStreamPlayer from "../components/LiveStreamPlayer";
 import "../styles/common.css";
 import "../styles/LivePage.css";
+
+const SRS_API = process.env.REACT_APP_SRS_API;
+const SRS_HTTP = process.env.REACT_APP_SRS_HTTP;
 
 type ActiveGame = {
     id: number;
@@ -12,45 +16,18 @@ type ActiveGame = {
     can_accept_uploads?: boolean;
 };
 
-type MockLiveClip = {
-    id: number;
-    angle: string;
-    camera: string;
-    status: string;
-    startedAgo: string;
-    viewers: number;
-    tags: string[];
+type SrsStream = {
+    name: string;
+    app: string;
 };
 
-const MOCK_LIVE_CLIPS: MockLiveClip[] = [
-    {
-        id: 1,
-        angle: "Halfway Line",
-        camera: "Parent iPhone 15",
-        status: "Recording live",
-        startedAgo: "Started 12s ago",
-        viewers: 18,
-        tags: ["midfield", "wide"],
-    },
-    {
-        id: 2,
-        angle: "Goal Box",
-        camera: "Coach Pixel",
-        status: "Buffering upload",
-        startedAgo: "Started 28s ago",
-        viewers: 11,
-        tags: ["attack", "close"],
-    },
-    {
-        id: 3,
-        angle: "Bench Side",
-        camera: "Dad Galaxy",
-        status: "Recording live",
-        startedAgo: "Started 41s ago",
-        viewers: 7,
-        tags: ["sideline", "player reactions"],
-    },
-];
+function prettifyAngle(streamName: string, sessionCode: string): string {
+    const prefix = `${sessionCode}_`.toLowerCase();
+    const raw = streamName.toLowerCase().startsWith(prefix)
+        ? streamName.slice(prefix.length)
+        : streamName;
+    return raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export default function LivePage() {
     const navigate = useNavigate();
@@ -58,6 +35,8 @@ export default function LivePage() {
     const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [liveStreams, setLiveStreams] = useState<SrsStream[]>([]);
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
         const fetchLiveSessions = async () => {
@@ -91,6 +70,28 @@ export default function LivePage() {
         [games, selectedGameId],
     );
 
+    // Poll SRS for active streams whenever the selected game changes
+    useEffect(() => {
+        if (pollRef.current) clearInterval(pollRef.current);
+        if (!selectedGame) { setLiveStreams([]); return; }
+
+        const fetchStreams = async () => {
+            try {
+                const res = await fetch(`${SRS_API}/api/v1/streams/`);
+                const json = await res.json();
+                const all: SrsStream[] = json.streams ?? [];
+                const prefix = selectedGame.session_code.toLowerCase() + "_";
+                setLiveStreams(all.filter((s) => s.name.toLowerCase().startsWith(prefix)));
+            } catch {
+                // silently ignore — streams list just stays stale
+            }
+        };
+
+        fetchStreams();
+        pollRef.current = setInterval(fetchStreams, 5000);
+        return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    }, [selectedGame]);
+
     if (loading) {
         return (
             <div className="live-container">
@@ -119,7 +120,7 @@ export default function LivePage() {
                         <p className="live-eyebrow">Live Session Feed</p>
                         <h1 className="live-title">Watch sideline captures as they come in</h1>
                         <p className="live-subtitle">
-                            This is the base live view for now.
+                            Live streams appear automatically as volunteers go live.
                         </p>
                     </div>
                     {selectedGame && (
@@ -137,9 +138,7 @@ export default function LivePage() {
                     <section className="live-empty-card">
                         <div className="live-empty-illustration">No Live Session</div>
                         <h2>No active session right now</h2>
-                        <p>
-                            The live clip placeholders will appear here.
-                        </p>
+                        <p>Start a session from the dashboard to see live streams here.</p>
                     </section>
                 ) : (
                     <>
@@ -179,56 +178,32 @@ export default function LivePage() {
 
                             <div className="live-stat-row">
                                 <div className="live-stat-card">
-                                    <span className="live-stat-value">{MOCK_LIVE_CLIPS.length}</span>
+                                    <span className="live-stat-value">{liveStreams.length}</span>
                                     <span className="live-stat-label">Live angles</span>
                                 </div>
                                 <div className="live-stat-card">
                                     <span className="live-stat-value">
-                                        {MOCK_LIVE_CLIPS.reduce((sum, clip) => sum + clip.viewers, 0)}
+                                        {liveStreams.length > 0 ? "Live" : "Waiting"}
                                     </span>
-                                    <span className="live-stat-label">Watching now</span>
-                                </div>
-                                <div className="live-stat-card">
-                                    <span className="live-stat-value">Mock</span>
                                     <span className="live-stat-label">Feed mode</span>
                                 </div>
                             </div>
                         </section>
 
                         <section className="live-grid">
-                            {MOCK_LIVE_CLIPS.map((clip) => (
-                                <article key={clip.id} className="live-card">
-                                    <div className="live-thumb">
-                                        <div className="live-badge">{clip.status}</div>
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className="live-thumb-icon">
-                                            <rect x="2" y="4" width="15" height="16" rx="2" />
-                                            <path d="M17 9l5-3v12l-5-3V9z" />
-                                        </svg>
-                                    </div>
-
-                                    <div className="live-card-body">
-                                        <div className="live-card-top">
-                                            <div>
-                                                <h3 className="live-card-title">{clip.angle}</h3>
-                                                <p className="live-card-meta">{clip.camera}</p>
-                                            </div>
-                                            <span className="live-viewer-pill">{clip.viewers} watching</span>
-                                        </div>
-
-                                        <p className="live-card-copy">
-                                            {clip.startedAgo} for <strong>{selectedGame.title}</strong>. Real-time footage from the Expo recorder will slot in here.
-                                        </p>
-
-                                        <div className="live-tag-row">
-                                            {clip.tags.map((tag) => (
-                                                <span key={tag} className="live-tag">
-                                                    {tag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </article>
-                            ))}
+                            {liveStreams.length === 0 ? (
+                                <p className="live-empty">
+                                    No active streams yet — have a volunteer scan the QR code and go live.
+                                </p>
+                            ) : (
+                                liveStreams.map((stream) => (
+                                    <LiveStreamPlayer
+                                        key={stream.name}
+                                        hlsUrl={`${SRS_HTTP}/live/${stream.name}.m3u8`}
+                                        label={prettifyAngle(stream.name, selectedGame.session_code)}
+                                    />
+                                ))
+                            )}
                         </section>
                     </>
                 )}

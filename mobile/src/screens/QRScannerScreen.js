@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   StyleSheet,
   View,
@@ -35,6 +36,15 @@ export default function QRScannerScreen({ navigation }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFocused, setIsFocused] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      setIsScanning(true);
+      return () => setIsFocused(false);
+    }, [])
+  );
 
   const handleBarCodeScanned = async ({ data }) => {
     if (!isScanning || isLoading) return;
@@ -92,6 +102,10 @@ export default function QRScannerScreen({ navigation }) {
         </TouchableOpacity>
       </View>
     );
+  }
+
+  if (!isFocused) {
+    return <View style={styles.container} />;
   }
 
   return (

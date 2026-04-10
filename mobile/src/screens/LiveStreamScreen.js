@@ -6,12 +6,14 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  SafeAreaView,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
-import { RTMPPublisher } from 'react-native-rtmp-publisher';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import RTMPPublisher from 'react-native-rtmp-publisher';
 
 const RTMP_HOST = process.env.EXPO_PUBLIC_RTMP_HOST;
-
 const PRESET_ANGLES = ['Side', 'Goal End', 'Wide'];
 
 function sanitizeAngle(label) {
@@ -20,40 +22,67 @@ function sanitizeAngle(label) {
 
 export default function LiveStreamScreen({ route, navigation }) {
   const { sessionCode, gameTitle } = route.params;
-
+  const [permission] = useCameraPermissions();
   const [angle, setAngle] = useState('');
   const [customAngle, setCustomAngle] = useState('');
   const [isLive, setIsLive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const cameraRef = useRef(null);
+  const [bluetoothReady, setBluetoothReady] = useState(false);
+  const publisherRef = useRef(null);
+
+  // Request mic + Bluetooth permissions before RTMPPublisher mounts
+  useEffect(() => {
+    const requestPermissions = async () => {
+      if (Platform.OS === 'android') {
+        try {
+          const perms = [PermissionsAndroid.PERMISSIONS.RECORD_AUDIO];
+          if (Platform.Version >= 31) {
+            perms.push(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT);
+          }
+          await PermissionsAndroid.requestMultiple(perms);
+        } catch (_) {}
+      }
+      setBluetoothReady(true);
+    };
+    requestPermissions();
+  }, []);
 
   const activeAngle = angle === 'custom' ? customAngle : angle;
-  const streamKey = `${sessionCode}_${sanitizeAngle(activeAngle)}`;
-  const rtmpUrl = `${RTMP_HOST}/${streamKey}`;
+  const streamKey = activeAngle.trim()
+    ? `${sessionCode}_${sanitizeAngle(activeAngle)}`
+    : '';
 
-  // Stop stream if user navigates back
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', () => {
-      if (isLive && cameraRef.current) {
-        cameraRef.current.stopStream();
+      if (isLive && publisherRef.current) {
+        publisherRef.current.stopStream?.();
       }
     });
     return unsubscribe;
   }, [navigation, isLive]);
 
-  const handleStartStop = () => {
+  const handleStartStop = async () => {
     if (!activeAngle.trim()) {
       Alert.alert('Select Angle', 'Please select or enter a camera angle before streaming.');
       return;
     }
-
     if (isLive) {
-      cameraRef.current?.stopStream();
+      publisherRef.current?.stopStream();
       setIsLive(false);
       setIsConnecting(false);
     } else {
       setIsConnecting(true);
-      cameraRef.current?.startStream();
+      console.log('[RTMP] startStream called, ref:', !!publisherRef.current, 'URL:', RTMP_HOST, 'key:', streamKey);
+      try {
+        const videoPrepared = await publisherRef.current?.isVideoPrepared();
+        const audioPrepared = await publisherRef.current?.isAudioPrepared();
+        const cameraOnPreview = await publisherRef.current?.isCameraOnPreview();
+        console.log('[RTMP] videoPrepared:', videoPrepared, 'audioPrepared:', audioPrepared, 'cameraOnPreview:', cameraOnPreview);
+        publisherRef.current?.startStream();
+        console.log('[RTMP] startStream invoked');
+      } catch (e) {
+        console.log('[RTMP] error:', e.message);
+      }
     }
   };
 
@@ -65,7 +94,7 @@ export default function LiveStreamScreen({ route, navigation }) {
           text: 'Stop & Go Back',
           style: 'destructive',
           onPress: () => {
-            cameraRef.current?.stopStream();
+            publisherRef.current?.stopStream?.();
             navigation.goBack();
           },
         },
@@ -73,6 +102,30 @@ export default function LiveStreamScreen({ route, navigation }) {
     } else {
       navigation.goBack();
     }
+  };
+
+  const renderCamera = () => {
+    if (!bluetoothReady) {
+      return <View style={[styles.camera, { backgroundColor: '#000' }]} />;
+    }
+    return (
+      <RTMPPublisher
+        key={streamKey}
+        ref={publisherRef}
+        style={styles.camera}
+        streamURL={RTMP_HOST}
+        streamName={streamKey}
+        onConnectionStarted={() => { console.log('[RTMP] connection started'); }}
+        onConnectionSuccess={() => { console.log('[RTMP] connected!'); setIsLive(true); setIsConnecting(false); }}
+        onConnectionFailed={(code) => { console.log('[RTMP] connection failed, code:', code);
+
+          setIsLive(false);
+          setIsConnecting(false);
+          Alert.alert('Connection Failed', 'Could not connect to the stream server.');
+        }}
+        onDisconnect={() => { setIsLive(false); setIsConnecting(false); }}
+      />
+    );
   };
 
   return (
@@ -96,26 +149,7 @@ export default function LiveStreamScreen({ route, navigation }) {
         </View>
       </View>
 
-      {/* Camera Preview */}
-      <RTMPPublisher
-        ref={cameraRef}
-        style={styles.camera}
-        streamURL={rtmpUrl}
-        streamName=""
-        onConnectionSuccess={() => {
-          setIsLive(true);
-          setIsConnecting(false);
-        }}
-        onConnectionFailed={() => {
-          setIsLive(false);
-          setIsConnecting(false);
-          Alert.alert('Connection Failed', 'Could not connect to the stream server. Check your network and try again.');
-        }}
-        onDisconnect={() => {
-          setIsLive(false);
-          setIsConnecting(false);
-        }}
-      />
+      {renderCamera()}
 
       {/* Controls */}
       <View style={styles.controls}>
@@ -157,7 +191,7 @@ export default function LiveStreamScreen({ route, navigation }) {
           />
         )}
 
-        {activeAngle.trim() ? (
+        {streamKey ? (
           <Text style={styles.streamKeyText}>
             Stream key: <Text style={styles.streamKeyValue}>{streamKey}</Text>
           </Text>
@@ -183,10 +217,7 @@ export default function LiveStreamScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
+  container: { flex: 1, backgroundColor: '#000' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -196,62 +227,29 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#222',
   },
-  backButton: {
-    paddingRight: 12,
+  backButton: { paddingRight: 12 },
+  backButtonText: { color: '#00FF00', fontSize: 15, fontWeight: '600' },
+  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerTitle: { color: '#FFF', fontSize: 15, fontWeight: 'bold', flexShrink: 1 },
+  sessionBadge: { backgroundColor: '#222', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  sessionCode: { color: '#888', fontSize: 12, fontFamily: 'monospace' },
+  liveIndicator: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#444' },
+  liveDotActive: { backgroundColor: '#FF3B30' },
+  liveText: { color: '#666', fontSize: 12, fontWeight: 'bold' },
+  liveTextActive: { color: '#FF3B30' },
+  camera: { flex: 1 },
+  noCamera: { backgroundColor: '#111', justifyContent: 'center', alignItems: 'center' },
+  noBuildBanner: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    borderRadius: 8,
+    padding: 12,
   },
-  backButtonText: {
-    color: '#00FF00',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  headerCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    color: '#FFF',
-    fontSize: 15,
-    fontWeight: 'bold',
-    flexShrink: 1,
-  },
-  sessionBadge: {
-    backgroundColor: '#222',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  sessionCode: {
-    color: '#888',
-    fontSize: 12,
-    fontFamily: 'monospace',
-  },
-  liveIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#444',
-  },
-  liveDotActive: {
-    backgroundColor: '#FF3B30',
-  },
-  liveText: {
-    color: '#666',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  liveTextActive: {
-    color: '#FF3B30',
-  },
-  camera: {
-    flex: 1,
-  },
+  noBuildText: { color: '#FFB800', fontSize: 12, textAlign: 'center' },
   controls: {
     backgroundColor: '#111',
     paddingHorizontal: 16,
@@ -260,19 +258,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#222',
   },
-  controlLabel: {
-    color: '#666',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 10,
-  },
-  angleRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-    flexWrap: 'wrap',
-  },
+  controlLabel: { color: '#666', fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 10 },
+  angleRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   angleButton: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -281,18 +268,9 @@ const styles = StyleSheet.create({
     borderColor: '#333',
     backgroundColor: '#1a1a1a',
   },
-  angleButtonActive: {
-    borderColor: '#00FF00',
-    backgroundColor: '#002200',
-  },
-  angleButtonText: {
-    color: '#888',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  angleButtonTextActive: {
-    color: '#00FF00',
-  },
+  angleButtonActive: { borderColor: '#00FF00', backgroundColor: '#002200' },
+  angleButtonText: { color: '#888', fontSize: 13, fontWeight: '600' },
+  angleButtonTextActive: { color: '#00FF00' },
   customInput: {
     backgroundColor: '#1a1a1a',
     borderWidth: 1,
@@ -304,30 +282,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 12,
   },
-  streamKeyText: {
-    color: '#555',
-    fontSize: 12,
-    marginBottom: 14,
-  },
-  streamKeyValue: {
-    color: '#888',
-    fontFamily: 'monospace',
-  },
+  streamKeyText: { color: '#555', fontSize: 12, marginBottom: 14 },
+  streamKeyValue: { color: '#888', fontFamily: 'monospace' },
   streamButton: {
     backgroundColor: '#00FF00',
     paddingVertical: 16,
     borderRadius: 10,
     alignItems: 'center',
   },
-  streamButtonLive: {
-    backgroundColor: '#FF3B30',
-  },
-  streamButtonConnecting: {
-    backgroundColor: '#555',
-  },
-  streamButtonText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  streamButtonLive: { backgroundColor: '#FF3B30' },
+  streamButtonConnecting: { backgroundColor: '#555' },
+  streamButtonText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
 });

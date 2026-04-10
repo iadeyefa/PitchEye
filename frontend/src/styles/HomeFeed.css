@@ -80,6 +80,18 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.hf-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    background: #06070f;
+}
+
+.hf-video::-webkit-media-controls {
+    opacity: 1;
+}
+
 .hf-thumb-icon {
     width: 48px;
     height: 48px;
@@ -125,6 +137,12 @@
     color: #f0f0f0;
     margin: 0;
     line-height: 1.4;
+}
+
+.hf-subtitle {
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.42);
+    margin: -2px 0 0;
 }
 
 .hf-post-footer {

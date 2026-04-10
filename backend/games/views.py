@@ -7,6 +7,7 @@ from utils.helpers import check_user
 from utils.qr_generator import generate_session_code, generate_qr_code, check_session_code_exists
 
 QR_CODE_TTL = timedelta(days=7)
+QR_STORAGE_BUCKET = 'qr-codes'
 
 
 def _parse_timestamp(value):
@@ -24,8 +25,19 @@ def _parse_timestamp(value):
 
 def is_qr_code_active(game):
     created_at = _parse_timestamp(game.get('created_at'))
+    game_time = _parse_timestamp(game.get('game_time'))
+
+    # Keep future sessions joinable even if they were created well in advance.
+    if game_time and datetime.now(timezone.utc) < game_time:
+        return True
+
     if not created_at:
         return True
+
+    if game_time:
+        expires_at = max(created_at, game_time) + QR_CODE_TTL
+        return datetime.now(timezone.utc) <= expires_at
+
     return datetime.now(timezone.utc) <= created_at + QR_CODE_TTL
 
 
@@ -36,8 +48,34 @@ def has_session_started(game):
     return datetime.now(timezone.utc) >= game_time
 
 
+def _resolve_qr_storage_path(game):
+    qr_value = game.get('qr_code_url')
+    if qr_value and not str(qr_value).startswith(('http://', 'https://')):
+        return qr_value
+
+    session_code = game.get('session_code')
+    if session_code:
+        return f"qr-codes/{session_code.upper()}.png"
+
+    return None
+
+
+def _sign_qr_url(game):
+    storage_path = _resolve_qr_storage_path(game)
+    if not storage_path:
+        return None
+
+    signed = supabase_admin.storage.from_(QR_STORAGE_BUCKET).create_signed_url(
+        storage_path,
+        expires_in=604800,
+    )
+    return signed.get("signedURL") or signed.get("signed_url")
+
+
 def serialize_game(game):
     serialized = dict(game)
+    serialized['qr_code_storage_path'] = _resolve_qr_storage_path(game)
+    serialized['qr_code_url'] = _sign_qr_url(game) if is_qr_code_active(game) else None
     serialized['qr_code_active'] = is_qr_code_active(game)
     serialized['session_started'] = has_session_started(game)
     serialized['can_accept_uploads'] = serialized['qr_code_active'] and serialized['session_started']

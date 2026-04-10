@@ -1,0 +1,314 @@
+.live-container {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at top left, rgba(86, 110, 255, 0.18), transparent 34%),
+        radial-gradient(circle at top right, rgba(69, 211, 179, 0.14), transparent 28%),
+        #0d0d1a;
+    padding: 28px 16px 110px;
+}
+
+.live-shell {
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.live-hero,
+.live-session-card,
+.live-empty-card,
+.live-card {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(23, 24, 44, 0.9);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+}
+
+.live-hero {
+    border-radius: 28px;
+    padding: 28px;
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    align-items: flex-end;
+}
+
+.live-eyebrow {
+    margin: 0 0 10px;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.74rem;
+    font-weight: 600;
+}
+
+.live-title {
+    margin: 0;
+    color: white;
+    font-size: clamp(2rem, 4vw, 3.4rem);
+    line-height: 0.98;
+    max-width: 720px;
+}
+
+.live-subtitle {
+    margin: 14px 0 0;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 1rem;
+    line-height: 1.55;
+    max-width: 700px;
+}
+
+.live-open-btn {
+    border: none;
+    background: white;
+    color: #101224;
+    border-radius: 999px;
+    padding: 13px 20px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.live-empty-card {
+    border-radius: 24px;
+    padding: 36px 28px;
+    text-align: center;
+}
+
+.live-empty-card h2 {
+    margin: 0 0 10px;
+    color: white;
+    font-size: 1.4rem;
+}
+
+.live-empty-card p,
+.live-empty {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.live-empty-illustration {
+    width: min(100%, 320px);
+    margin: 0 auto 18px;
+    aspect-ratio: 16 / 9;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(86, 110, 255, 0.14));
+    color: rgba(255, 255, 255, 0.72);
+    font-weight: 700;
+}
+
+.live-session-card {
+    border-radius: 24px;
+    padding: 22px;
+}
+
+.live-session-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+}
+
+.live-status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.live-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #35d28a;
+    box-shadow: 0 0 0 6px rgba(53, 210, 138, 0.14);
+}
+
+.live-status-text {
+    color: #97efc1;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+.live-session-title {
+    margin: 0;
+    color: white;
+    font-size: 1.75rem;
+}
+
+.live-session-meta {
+    margin: 8px 0 0;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 0.92rem;
+}
+
+.live-session-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 220px;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.live-session-picker select {
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    color: white;
+    padding: 12px 14px;
+}
+
+.live-stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.live-stat-card {
+    border-radius: 16px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.live-stat-value {
+    display: block;
+    color: white;
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.live-stat-label {
+    display: block;
+    margin-top: 4px;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 0.8rem;
+}
+
+.live-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.live-card {
+    overflow: hidden;
+    border-radius: 24px;
+}
+
+.live-thumb {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        linear-gradient(160deg, rgba(103, 162, 255, 0.18), transparent 58%),
+        linear-gradient(220deg, rgba(53, 210, 138, 0.15), rgba(255, 255, 255, 0.03)),
+        rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.16);
+}
+
+.live-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    border-radius: 999px;
+    background: rgba(10, 12, 24, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: white;
+    padding: 7px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.live-thumb-icon {
+    width: 56px;
+    height: 56px;
+}
+
+.live-card-body {
+    padding: 16px;
+}
+
+.live-card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.live-card-title {
+    margin: 0;
+    color: white;
+    font-size: 1rem;
+}
+
+.live-card-meta {
+    margin: 6px 0 0;
+    color: rgba(255, 255, 255, 0.46);
+    font-size: 0.82rem;
+}
+
+.live-viewer-pill {
+    flex-shrink: 0;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.74rem;
+}
+
+.live-card-copy {
+    margin: 14px 0;
+    color: rgba(255, 255, 255, 0.62);
+    line-height: 1.55;
+    font-size: 0.9rem;
+}
+
+.live-tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.live-tag {
+    border-radius: 999px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.75rem;
+}
+
+@media (max-width: 980px) {
+    .live-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .live-hero,
+    .live-session-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .live-stat-row,
+    .live-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .live-open-btn {
+        width: 100%;
+    }
+}

@@ -7,6 +7,7 @@ import "../styles/LivePage.css";
 
 const SRS_API = process.env.REACT_APP_SRS_API;
 const SRS_HTTP = process.env.REACT_APP_SRS_HTTP;
+const API_BASE = "http://localhost:8000/api";
 
 type ActiveGame = {
     id: number;
@@ -14,11 +15,20 @@ type ActiveGame = {
     session_code: string;
     game_time: string;
     can_accept_uploads?: boolean;
+    created_by: string;
 };
 
 type SrsStream = {
     name: string;
     app: string;
+};
+
+type StreamInfo = {
+    id: string;
+    stream_key: string;
+    rtmp_url: string;
+    hls_url: string;
+    status: string;
 };
 
 function prettifyAngle(streamName: string, sessionCode: string): string {
@@ -36,6 +46,10 @@ export default function LivePage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [liveStreams, setLiveStreams] = useState<SrsStream[]>([]);
+    const [userId, setUserId] = useState<string | null>(null);
+    const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
+    const [isStarting, setIsStarting] = useState(false);
+    const [isEnding, setIsEnding] = useState(false);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
@@ -44,8 +58,10 @@ export default function LivePage() {
                 if (!supabase) throw new Error("Supabase not initialized");
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) throw new Error("Not authenticated");
+                
+                setUserId(session.user.id);
 
-                const response = await fetch("http://localhost:8000/api/games/attachable/", {
+                const response = await fetch(`${API_BASE}/games/attachable/`, {
                     headers: { Authorization: `Bearer ${session.access_token}` },
                 });
 
@@ -65,12 +81,91 @@ export default function LivePage() {
         fetchLiveSessions();
     }, []);
 
+    useEffect(() => {
+        const checkStreamStatus = async () => {
+            if (!selectedGame) return;
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) return;
+                
+                const res = await fetch(
+                    `${API_BASE}/streams/session/${selectedGame.session_code}/`,
+                    { headers: { Authorization: `Bearer ${session.access_token}` } }
+                );
+                if (res.ok) {
+                    const data = await res.json();
+                    setStreamInfo(data);
+                } else {
+                    setStreamInfo(null);
+                }
+            } catch {
+                setStreamInfo(null);
+            }
+        };
+        
+        checkStreamStatus();
+    }, [selectedGame]);
+
     const selectedGame = useMemo(
         () => games.find((game) => game.id === selectedGameId) ?? games[0] ?? null,
         [games, selectedGameId],
     );
 
-    // Poll SRS for active streams whenever the selected game changes
+    const isHost = useMemo(() => {
+        return selectedGame && userId && selectedGame.created_by === userId;
+    }, [selectedGame, userId]);
+
+    const handleStartStream = async () => {
+        if (!selectedGame || !userId) return;
+        setIsStarting(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Not authenticated");
+            
+            const res = await fetch(`${API_BASE}/streams/start/`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ game_id: selectedGame.id }),
+            });
+            
+            if (!res.ok) throw new Error("Failed to start stream");
+            const data = await res.json();
+            setStreamInfo(data);
+        } catch (err) {
+            alert("Failed to start stream");
+        } finally {
+            setIsStarting(false);
+        }
+    };
+
+    const handleEndStream = async () => {
+        if (!streamInfo) return;
+        setIsEnding(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Not authenticated");
+            
+            const res = await fetch(`${API_BASE}/streams/end/`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ stream_key: streamInfo.stream_key }),
+            });
+            
+            if (!res.ok) throw new Error("Failed to end stream");
+            setStreamInfo(null);
+        } catch (err) {
+            alert("Failed to end stream");
+        } finally {
+            setIsEnding(false);
+        }
+    };
+
     useEffect(() => {
         if (pollRef.current) clearInterval(pollRef.current);
         if (!selectedGame) { setLiveStreams([]); return; }
@@ -83,7 +178,6 @@ export default function LivePage() {
                 const prefix = selectedGame.session_code.toLowerCase() + "_";
                 setLiveStreams(all.filter((s) => s.name.toLowerCase().startsWith(prefix)));
             } catch {
-                // silently ignore — streams list just stays stale
             }
         };
 
@@ -187,8 +281,50 @@ export default function LivePage() {
                                     </span>
                                     <span className="live-stat-label">Feed mode</span>
                                 </div>
+                                {isHost && (
+                                    <div className="live-stat-card">
+                                        {!streamInfo ? (
+                                            <button
+                                                className="live-open-btn"
+                                                onClick={handleStartStream}
+                                                disabled={isStarting}
+                                            >
+                                                {isStarting ? "Starting..." : "Go Live"}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                className="live-open-btn"
+                                                onClick={handleEndStream}
+                                                disabled={isEnding}
+                                                style={{ backgroundColor: "#dc2626" }}
+                                            >
+                                                {isEnding ? "Ending..." : "End Stream"}
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </section>
+
+                        {streamInfo && (
+                            <section className="live-session-card">
+                                <div className="live-session-header">
+                                    <div>
+                                        <div className="live-status-row">
+                                            <span className="live-status-dot" style={{ backgroundColor: "#22c55e" }} />
+                                            <span className="live-status-text">You are live</span>
+                                        </div>
+                                        <h2 className="live-session-title">Stream Key</h2>
+                                        <p className="live-session-meta" style={{ fontFamily: "monospace" }}>
+                                            {streamInfo.stream_key}
+                                        </p>
+                                    </div>
+                                </div>
+                                <p style={{ fontSize: "0.875rem", color: "#666", marginTop: "0.5rem" }}>
+                                    RTMP URL: {streamInfo.rtmp_url}
+                                </p>
+                            </section>
+                        )}
 
                         <section className="live-grid">
                             {liveStreams.length === 0 ? (

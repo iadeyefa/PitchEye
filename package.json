@@ -1,5 +1,11 @@
 {
   "dependencies": {
-    "react-router-dom": "^7.13.0"
-  }
+    "react-router-dom": "^7.13.0",
+    "expo": "~55.0.4",
+    "react": "19.2.0",
+    "react-native": "0.83.2"
+  },
+  "name": "PitchEye",
+  "version": "1.0.0",
+  "scripts": {}
 }

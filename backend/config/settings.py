@@ -10,10 +10,17 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+ENV_PATH = BASE_DIR.parent / ".env"
+load_dotenv(ENV_PATH, override=True)
+
+RTMP_SERVER_URL = os.getenv("RTMP_SERVER_URL", "")
+HLS_SERVER_URL = os.getenv("HLS_SERVER_URL", "")
 
 
 # Quick-start development settings - unsuitable for production
@@ -25,7 +32,7 @@ SECRET_KEY = 'django-insecure-@m2_n%z2-_jlo-xramzad11&os_6d!wk941yf13-kq15(+h^mx
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -38,6 +45,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
+    'rest_framework',
+    'games',
+    'videos',
+    'users',
+    'teams',
+    'streams',
 ]
 
 MIDDLEWARE = [
@@ -56,6 +69,8 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = 'config.urls'
 

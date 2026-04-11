@@ -1,6 +1,12 @@
 from utils.supabase_client import supabase
 from rest_framework.exceptions import AuthenticationFailed
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(BASE_DIR / ".env", override=True)
+
 
 def _extract_bearer_token(auth_header):
     if not auth_header:
@@ -15,14 +21,16 @@ def _extract_bearer_token(auth_header):
 
     return parts[1].strip()
 
+
 def check_user(auth_header):
     from supabase import create_client
-    from dotenv import load_dotenv
-    load_dotenv()
 
     token = _extract_bearer_token(auth_header)
 
-    client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+    supabase_url = os.getenv("SUPABASE_URL") or os.getenv("REACT_APP_SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_KEY") or os.getenv("REACT_APP_SUPABASE_ANON_KEY")
+
+    client = create_client(supabase_url, supabase_key)
 
     try:
         auth_response = client.auth.get_user(token)

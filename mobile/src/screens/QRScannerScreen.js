@@ -14,7 +14,6 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 function extractSessionCode(scannedData) {
-  // Handles both full URLs (https://host/join/ABC123) and bare codes (ABC123)
   try {
     const url = new URL(scannedData);
     const parts = url.pathname.split('/').filter(Boolean);
@@ -23,7 +22,6 @@ function extractSessionCode(scannedData) {
       return parts[joinIndex + 1].toUpperCase();
     }
   } catch {
-    // Not a URL — treat the raw value as the code
     const trimmed = scannedData.trim().toUpperCase();
     if (/^[A-Z0-9]{4,10}$/.test(trimmed)) {
       return trimmed;
@@ -115,18 +113,15 @@ export default function QRScannerScreen({ navigation }) {
         onBarcodeScanned={isScanning && !isLoading ? handleBarCodeScanned : undefined}
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
       >
-        {/* Dimmed overlay with cut-out frame */}
         <View style={styles.overlay}>
           <View style={styles.scanFrame} />
         </View>
 
-        {/* Top label */}
         <View style={styles.topBar}>
           <Text style={styles.title}>Scan Session QR Code</Text>
           <Text style={styles.subtext}>Point at the QR code displayed on the webapp</Text>
         </View>
 
-        {/* Bottom status */}
         <View style={styles.bottomBar}>
           {isLoading ? (
             <>

@@ -30,7 +30,6 @@ export default function LiveStreamScreen({ route, navigation }) {
   const [bluetoothReady, setBluetoothReady] = useState(false);
   const publisherRef = useRef(null);
 
-  // Request mic + Bluetooth permissions before RTMPPublisher mounts
   useEffect(() => {
     const requestPermissions = async () => {
       if (Platform.OS === 'android') {
@@ -51,6 +50,7 @@ export default function LiveStreamScreen({ route, navigation }) {
   const streamKey = activeAngle.trim()
     ? `${sessionCode}_${sanitizeAngle(activeAngle)}`
     : '';
+  const rtmpUrl = `${RTMP_HOST}/${streamKey}`;
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', () => {
@@ -66,20 +66,15 @@ export default function LiveStreamScreen({ route, navigation }) {
       Alert.alert('Select Angle', 'Please select or enter a camera angle before streaming.');
       return;
     }
+
     if (isLive) {
       publisherRef.current?.stopStream();
       setIsLive(false);
       setIsConnecting(false);
     } else {
       setIsConnecting(true);
-      console.log('[RTMP] startStream called, ref:', !!publisherRef.current, 'URL:', RTMP_HOST, 'key:', streamKey);
       try {
-        const videoPrepared = await publisherRef.current?.isVideoPrepared();
-        const audioPrepared = await publisherRef.current?.isAudioPrepared();
-        const cameraOnPreview = await publisherRef.current?.isCameraOnPreview();
-        console.log('[RTMP] videoPrepared:', videoPrepared, 'audioPrepared:', audioPrepared, 'cameraOnPreview:', cameraOnPreview);
         publisherRef.current?.startStream();
-        console.log('[RTMP] startStream invoked');
       } catch (e) {
         console.log('[RTMP] error:', e.message);
       }
@@ -113,12 +108,12 @@ export default function LiveStreamScreen({ route, navigation }) {
         key={streamKey}
         ref={publisherRef}
         style={styles.camera}
-        streamURL={RTMP_HOST}
-        streamName={streamKey}
+        streamURL={rtmpUrl}
+        streamName=""
         onConnectionStarted={() => { console.log('[RTMP] connection started'); }}
         onConnectionSuccess={() => { console.log('[RTMP] connected!'); setIsLive(true); setIsConnecting(false); }}
-        onConnectionFailed={(code) => { console.log('[RTMP] connection failed, code:', code);
-
+        onConnectionFailed={(code) => { 
+          console.log('[RTMP] connection failed, code:', code);
           setIsLive(false);
           setIsConnecting(false);
           Alert.alert('Connection Failed', 'Could not connect to the stream server.');
@@ -130,7 +125,6 @@ export default function LiveStreamScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Back</Text>
@@ -151,7 +145,6 @@ export default function LiveStreamScreen({ route, navigation }) {
 
       {renderCamera()}
 
-      {/* Controls */}
       <View style={styles.controls}>
         <Text style={styles.controlLabel}>CAMERA ANGLE</Text>
         <View style={styles.angleRow}>
@@ -239,17 +232,6 @@ const styles = StyleSheet.create({
   liveText: { color: '#666', fontSize: 12, fontWeight: 'bold' },
   liveTextActive: { color: '#FF3B30' },
   camera: { flex: 1 },
-  noCamera: { backgroundColor: '#111', justifyContent: 'center', alignItems: 'center' },
-  noBuildBanner: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    borderRadius: 8,
-    padding: 12,
-  },
-  noBuildText: { color: '#FFB800', fontSize: 12, textAlign: 'center' },
   controls: {
     backgroundColor: '#111',
     paddingHorizontal: 16,

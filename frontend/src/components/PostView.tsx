@@ -1,80 +1,82 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { supabase } from "../supabaseClient";
 import "../styles/common.css";
 import "../styles/PostView.css";
 
-type Comment = {
-    id: number;
-    username: string;
-    text: string;
-};
-
 type Post = {
     id: number;
-    username: string;
-    caption: string;
-    timestamp: string;
-    likes: number;
-    tagged_players: string[];
-    comments: Comment[];
+    video_url: string;
+    uploaded_at?: string;
+    caption?: string | null;
+    original_filename?: string;
+    tagged_players?: string[];
+    uploader?: {
+        username?: string;
+        email?: string;
+    };
+    game_title?: string | null;
 };
 
-// TODO: Delete and implement api once finished
-const DUMMY_POSTS: Record<number, Post> = {
-    1: {
-        id: 1,
-        username: "soccer_mom_2",
-        caption: "Practice last night xyz",
-        timestamp: "5 hours ago",
-        likes: 14,
-        tagged_players: ["player_six", "player_two", "player_one"],
-        comments: [
-            { id: 1, username: "soccer_dad", text: "Great session!" },
-            { id: 2, username: "soccer_player", text: "Loved this drill" },
-            { id: 3, username: "soccer_fan", text: "Keep it up 🔥" },
-        ],
-    },
-    2: {
-        id: 2,
-        username: "coach_davis",
-        caption: "Great defensive play from the boys 🔒",
-        timestamp: "2 hours ago",
-        likes: 31,
-        tagged_players: ["player_three", "player_five"],
-        comments: [
-            { id: 1, username: "soccer_mom_2", text: "Amazing block!" },
-            { id: 2, username: "pitcheye_fc", text: "Clip of the week 👏" },
-        ],
-    },
-    3: {
-        id: 3,
-        username: "pitcheye_fc",
-        caption: "Top G goal from last weekend's match",
-        timestamp: "1 day ago",
-        likes: 88,
-        tagged_players: ["player_four"],
-        comments: [
-            { id: 1, username: "coach_davis", text: "What a finish" },
-            { id: 2, username: "soccer_fan", text: "Insane 🎯" },
-            { id: 3, username: "soccer_mom_2", text: "My kid scored this!!" },
-        ],
-    },
+const formatTimestamp = (value?: string) => {
+    if (!value) return "";
+
+    const target = new Date(value);
+    if (Number.isNaN(target.getTime())) return "";
+
+    return target.toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+    });
+};
+
+const getUploaderLabel = (post: Post) =>
+    post.uploader?.username?.trim() || post.uploader?.email?.split("@")[0] || "teammate";
+
+const getCaption = (post: Post) => {
+    const caption = post.caption?.trim();
+    if (caption) return caption;
+    if (post.game_title) return `Clip from ${post.game_title}`;
+    if (post.original_filename) return post.original_filename;
+    return "Team clip";
 };
 
 export default function PostView() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [commentInput, setCommentInput] = useState("");
-    const [liked, setLiked] = useState(false);
+    const [post, setPost] = useState<Post | null>(null);
     const [showTags, setShowTags] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
-    const post = DUMMY_POSTS[Number(id)] ?? DUMMY_POSTS[1];
+    useEffect(() => {
+        const fetchPost = async () => {
+            try {
+                if (!supabase) throw new Error("Supabase not initialized");
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) throw new Error("Not authenticated");
+                if (!id) throw new Error("Post not found");
 
-    const handleComment = (e: React.FormEvent) => {
-        e.preventDefault();
-        setCommentInput("");
-        // TODO: wire up to API later
-    };
+                const response = await fetch(`http://localhost:8000/api/videos/${id}/`, {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                });
+
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.error || "Unable to load post");
+                }
+
+                const data: Post = await response.json();
+                setPost(data);
+            } catch (err: unknown) {
+                setError((err as Error).message || "Unable to load post");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchPost();
+    }, [id]);
 
     return (
         <div className="pv-container">
@@ -83,91 +85,64 @@ export default function PostView() {
                     ← Back
                 </button>
 
-                <div className="pv-author">
-                    <div className="pv-avatar">
-                        {post.username.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="pv-username">@{post.username}</span>
-                </div>
+                {loading && <p className="pv-state">Loading post...</p>}
+                {!loading && error && <p className="pv-state">{error}</p>}
 
-                {/* TODO: video thumbnail */}
-                <div className="pv-video-wrapper">
-                    <div className="pv-thumbnail">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className="pv-thumb-icon">
-                            <rect x="2" y="4" width="15" height="16" rx="2" />
-                            <path d="M17 9l5-3v12l-5-3V9z" />
-                        </svg>
-                    </div>
-
-                    {post.tagged_players.length > 0 && (
-                        <>
-                            <button
-                                className="pv-tag-toggle"
-                                onClick={() => setShowTags((v) => !v)}
-                                aria-label="Toggle player tags"
-                            >
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-                                    <circle cx="7" cy="7" r="1.5" fill="currentColor" />
-                                </svg>
-                            </button>
-
-                            {showTags && (
-                                <div className="pv-tags-overlay">
-                                    {post.tagged_players.map((p) => (
-                                        <span key={p} className="pv-tag-pill">@{p}</span>
-                                    ))}
-                                </div>
-                            )}
-                        </>
-                    )}
-                </div>
-
-                <div className="pv-meta">
-                    <button
-                        className={`pv-like-btn ${liked ? "pv-like-btn--active" : ""}`}
-                        onClick={() => setLiked((v) => !v)}
-                        aria-label="Like"
-                    >
-                        <svg viewBox="0 0 24 24" fill={liked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                        </svg>
-                        <span>{post.likes + (liked ? 1 : 0)}</span>
-                    </button>
-
-                    <div className="pv-caption-row">
-                        <p className="pv-caption">{post.caption}</p>
-                        <span className="pv-timestamp">{post.timestamp}</span>
-                    </div>
-                </div>
-
-                <div className="pv-comments-section">
-                    <div className="pv-comments-list">
-                        {post.comments.map((c) => (
-                            <div key={c.id} className="pv-comment">
-                                <span className="pv-comment-text">{c.text}</span>
-                                <span className="pv-comment-user">@{c.username}</span>
+                {!loading && !error && post && (
+                    <>
+                        <div className="pv-author">
+                            <div className="pv-avatar">
+                                {getUploaderLabel(post).charAt(0).toUpperCase()}
                             </div>
-                        ))}
-                    </div>
+                            <div className="pv-author-meta">
+                                <span className="pv-username">@{getUploaderLabel(post)}</span>
+                                {post.game_title && <span className="pv-game">{post.game_title}</span>}
+                            </div>
+                        </div>
 
-                    <form className="pv-comment-form" onSubmit={handleComment}>
-                        <input
-                            className="pv-comment-input"
-                            type="text"
-                            placeholder="Leave a comment..."
-                            value={commentInput}
-                            onChange={(e) => setCommentInput(e.target.value)}
-                        />
-                        <button
-                            type="submit"
-                            className="pv-comment-submit"
-                            disabled={!commentInput.trim()}
-                        >
-                            Post
-                        </button>
-                    </form>
-                </div>
+                        <div className="pv-video-wrapper">
+                            <video
+                                className="pv-video"
+                                src={post.video_url}
+                                controls
+                                playsInline
+                                preload="metadata"
+                            >
+                                Your browser does not support video playback.
+                            </video>
+
+                            {(post.tagged_players || []).length > 0 && (
+                                <>
+                                    <button
+                                        className="pv-tag-toggle"
+                                        onClick={() => setShowTags((v) => !v)}
+                                        aria-label="Toggle player tags"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                                            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                                            <circle cx="7" cy="7" r="1.5" fill="currentColor" />
+                                        </svg>
+                                    </button>
+
+                                    {showTags && (
+                                        <div className="pv-tags-overlay">
+                                            {post.tagged_players?.map((player) => (
+                                                <span key={player} className="pv-tag-pill">@{player}</span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
+                        <div className="pv-meta">
+                            <div className="pv-caption-row">
+                                <p className="pv-caption">{getCaption(post)}</p>
+                                <span className="pv-timestamp">{formatTimestamp(post.uploaded_at)}</span>
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );

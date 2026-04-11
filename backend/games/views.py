@@ -122,7 +122,7 @@ def create_game(request):
 
 @api_view(['GET'])
 def get_game_by_session_code(request, session_code):
-    data = supabase.table('games').select('*').eq('session_code', session_code.upper()).execute()
+    data = supabase_admin.table('games').select('*').eq('session_code', session_code.upper()).execute()
     if len(data.data) == 0:
         return Response({'error': 'Invalid session code'}, status=404)
     if not is_qr_code_active(data.data[0]):

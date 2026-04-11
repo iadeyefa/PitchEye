@@ -1,58 +1,107 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../supabaseClient";
 import "../styles/common.css";
 import "../styles/HomeFeed.css";
 
-type Post = {
+type FeedPost = {
     id: number;
-    username: string;
-    caption: string;
-    timestamp: string;
-    likes: number;
-    comments: number;
-    tagged_players: string[];
+    video_url: string;
+    uploaded_at?: string;
+    caption?: string | null;
+    original_filename?: string;
+    tagged_players?: string[];
+    uploader?: {
+        username?: string;
+        email?: string;
+    };
+    game_title?: string | null;
 };
 
-// TODO: Delete and implement api once finished
-const DUMMY_POSTS: Post[] = [
-    {
-        id: 1,
-        username: "soccer_mom_2",
-        caption: "Practice last night xyz",
-        timestamp: "5 hours ago",
-        likes: 14,
-        comments: 3,
-        tagged_players: ["player_one", "player_two", "player_six"],
-    },
-    {
-        id: 2,
-        username: "coach_davis",
-        caption: "Great defensive play from the boys 🔒",
-        timestamp: "2 hours ago",
-        likes: 31,
-        comments: 7,
-        tagged_players: ["player_three", "player_five"],
-    },
-    {
-        id: 3,
-        username: "pitcheye_fc",
-        caption: "Top G goal from last weekend's match",
-        timestamp: "1 day ago",
-        likes: 88,
-        comments: 12,
-        tagged_players: ["player_four"],
-    },
-];
+const formatTimestamp = (value?: string) => {
+    if (!value) return "";
 
+    const target = new Date(value).getTime();
+    if (Number.isNaN(target)) return "";
+
+    const diffMs = target - Date.now();
+    const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    const steps: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+        ["year", 1000 * 60 * 60 * 24 * 365],
+        ["month", 1000 * 60 * 60 * 24 * 30],
+        ["week", 1000 * 60 * 60 * 24 * 7],
+        ["day", 1000 * 60 * 60 * 24],
+        ["hour", 1000 * 60 * 60],
+        ["minute", 1000 * 60],
+    ];
+
+    for (const [unit, size] of steps) {
+        const amount = Math.round(diffMs / size);
+        if (Math.abs(amount) >= 1) {
+            return formatter.format(amount, unit);
+        }
+    }
+
+    return "just now";
+};
+
+const getPostSummary = (post: FeedPost) => {
+    const caption = post.caption?.trim();
+    if (caption) return caption;
+    if (post.game_title) return `Clip from ${post.game_title}`;
+    if (post.original_filename) return post.original_filename;
+    return "Team clip";
+};
+
+const getUploaderLabel = (post: FeedPost) =>
+    post.uploader?.username?.trim() || post.uploader?.email?.split("@")[0] || "teammate";
 
 export default function HomeFeed() {
     const navigate = useNavigate();
     const [search, setSearch] = useState("");
+    const [posts, setPosts] = useState<FeedPost[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
-    const filtered = DUMMY_POSTS.filter((p) =>
-        p.caption.toLowerCase().includes(search.toLowerCase()) ||
-        p.username.toLowerCase().includes(search.toLowerCase())
-    );
+    useEffect(() => {
+        const fetchFeed = async () => {
+            try {
+                if (!supabase) throw new Error("Supabase not initialized");
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) throw new Error("Not authenticated");
+
+                const response = await fetch("http://localhost:8000/api/videos/feed/", {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                });
+
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.error || "Unable to load posts");
+                }
+
+                const data: FeedPost[] = await response.json();
+                setPosts(data);
+            } catch (err: unknown) {
+                setError((err as Error).message || "Unable to load posts");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchFeed();
+    }, []);
+
+    const filtered = posts.filter((post) => {
+        const query = search.toLowerCase();
+        if (!query) return true;
+
+        return (
+            getPostSummary(post).toLowerCase().includes(query) ||
+            getUploaderLabel(post).toLowerCase().includes(query) ||
+            (post.game_title || "").toLowerCase().includes(query) ||
+            (post.tagged_players || []).some((tag) => tag.toLowerCase().includes(query))
+        );
+    });
 
     return (
         <div className="hf-container">
@@ -71,8 +120,10 @@ export default function HomeFeed() {
             </div>
 
             <div className="hf-feed">
-                {filtered.length === 0 && (
-                    <p className="hf-empty">No posts found</p>
+                {loading && <p className="hf-empty">Loading posts...</p>}
+                {!loading && error && <p className="hf-empty">{error}</p>}
+                {!loading && !error && filtered.length === 0 && (
+                    <p className="hf-empty">{posts.length === 0 ? "No team clips yet" : "No posts found"}</p>
                 )}
                 {filtered.map((post) => (
                     <div
@@ -80,44 +131,26 @@ export default function HomeFeed() {
                         className="hf-post-card"
                         onClick={() => navigate(`/post/${post.id}`)}
                     >
-                        {/* TODO: video thumbnails would go here */}
                         <div className="hf-thumbnail">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className="hf-thumb-icon">
-                                <rect x="2" y="4" width="15" height="16" rx="2" />
-                                <path d="M17 9l5-3v12l-5-3V9z" />
-                            </svg>
+                            <video
+                                className="hf-video"
+                                src={post.video_url}
+                                controls
+                                playsInline
+                                preload="metadata"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                Your browser does not support video playback.
+                            </video>
                         </div>
 
-                        {/* TODO: post meta */}
                         <div className="hf-post-meta">
-                            <div className="hf-post-actions">
-                                <button
-                                    className="hf-action-btn"
-                                    onClick={(e) => e.stopPropagation()}
-                                    aria-label="Like"
-                                >
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                                    </svg>
-                                    <span>{post.likes}</span>
-                                </button>
-                                <button
-                                    className="hf-action-btn"
-                                    onClick={(e) => e.stopPropagation()}
-                                    aria-label="Comment"
-                                >
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                                    </svg>
-                                    <span>{post.comments}</span>
-                                </button>
-                            </div>
-
-                            <p className="hf-caption">{post.caption}</p>
                             <div className="hf-post-footer">
-                                <span className="hf-username">@{post.username}</span>
-                                <span className="hf-timestamp">{post.timestamp}</span>
+                                <span className="hf-username">@{getUploaderLabel(post)}</span>
+                                <span className="hf-timestamp">{formatTimestamp(post.uploaded_at)}</span>
                             </div>
+                            <p className="hf-caption">{getPostSummary(post)}</p>
+                            {post.game_title && <p className="hf-subtitle">{post.game_title}</p>}
                         </div>
                     </div>
                 ))}

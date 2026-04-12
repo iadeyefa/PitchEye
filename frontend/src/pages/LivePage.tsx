@@ -166,19 +166,21 @@ export default function LivePage() {
 
     const liveGridTitle = useMemo(() => {
         if (sessionLiveState === "starting") return "Waiting for the live feed";
+        if (!streamInfo) return "This session has not gone live yet";
         return "No active live streams yet";
-    }, [sessionLiveState]);
+    }, [sessionLiveState, streamInfo]);
 
     const liveGridIllustration = useMemo(() => {
         if (sessionLiveState === "starting") return "Starting Stream";
+        if (!streamInfo) return "Not Live Yet";
         if (streamsLoading) return "Checking Feeds";
         return "No Live Angles";
-    }, [sessionLiveState, streamsLoading]);
+    }, [sessionLiveState, streamInfo, streamsLoading]);
 
     const liveGridMessage = useMemo(() => {
         if (streamsLoading) return "Checking for active camera angles...";
         if (streamsError) return streamsError;
-        if (!streamInfo) return "No active streams yet - open the session and tap Go Live to start a stream for this feed.";
+        if (!streamInfo) return "Tap Go Live to start streaming. Once the stream starts, it will appear here automatically.";
         if (visibleLiveTiles.length === 0) return "Stream is starting - waiting for the publisher feed to appear.";
         return "";
     }, [visibleLiveTiles.length, streamInfo, streamsError, streamsLoading]);
@@ -310,7 +312,7 @@ export default function LivePage() {
                         <p className="live-eyebrow">Live Session Feed</p>
                         <h1 className="live-title">Watch sideline captures as they come in</h1>
                         <p className="live-subtitle">
-                            Open the session and start a stream with Go Live. Once someone begins streaming, it will appear here automatically.
+                            Tap Go Live to start streaming. Once a stream begins, it will appear here automatically.
                         </p>
                     </div>
                     {selectedGame && (
@@ -399,26 +401,6 @@ export default function LivePage() {
                                 )}
                             </div>
                         </section>
-
-                        {streamInfo && (
-                            <section className="live-session-card">
-                                <div className="live-session-header">
-                                    <div>
-                                        <div className="live-status-row">
-                                            <span className="live-status-dot" style={{ backgroundColor: "#22c55e" }} />
-                                            <span className="live-status-text">You are live</span>
-                                        </div>
-                                        <h2 className="live-session-title">Stream Key</h2>
-                                        <p className="live-session-meta" style={{ fontFamily: "monospace" }}>
-                                            {streamInfo.stream_key}
-                                        </p>
-                                    </div>
-                                </div>
-                                <p style={{ fontSize: "0.875rem", color: "#666", marginTop: "0.5rem" }}>
-                                    RTMP URL: {streamInfo.rtmp_url}
-                                </p>
-                            </section>
-                        )}
 
                         <section className="live-grid">
                             {visibleLiveTiles.length === 0 ? (

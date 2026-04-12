@@ -120,7 +120,7 @@ export default function SignupModal({
     try {
       const userId = await signup(email, password);
 
-      enterUser(firstName,lastName, email, role, teamId, userId)
+      await enterUser(firstName,lastName, email, role, teamId, userId)
       if(role=='admin') await enterTeam(teamName, userId)
       setEmail("");
       setPassword("");

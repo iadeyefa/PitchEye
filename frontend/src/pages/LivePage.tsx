@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../supabaseClient";
 import LiveStreamPlayer from "../components/LiveStreamPlayer";
+import { supabase } from "../supabaseClient";
 import "../styles/common.css";
 import "../styles/LivePage.css";
 
@@ -31,6 +31,16 @@ type StreamInfo = {
     status: string;
 };
 
+type LiveTile = {
+    id: string;
+    label: string;
+    hlsUrl: string;
+    status: "live";
+    sessionCode: string;
+};
+
+type SessionLiveState = "offline" | "starting" | "live";
+
 function prettifyAngle(streamName: string, sessionCode: string): string {
     const prefix = `${sessionCode}_`.toLowerCase();
     const raw = streamName.toLowerCase().startsWith(prefix)
@@ -45,11 +55,13 @@ export default function LivePage() {
     const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [liveStreams, setLiveStreams] = useState<SrsStream[]>([]);
     const [userId, setUserId] = useState<string | null>(null);
     const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
     const [isStarting, setIsStarting] = useState(false);
     const [isEnding, setIsEnding] = useState(false);
+    const [liveStreams, setLiveStreams] = useState<SrsStream[]>([]);
+    const [streamsLoading, setStreamsLoading] = useState(false);
+    const [streamsError, setStreamsError] = useState("");
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
@@ -58,7 +70,7 @@ export default function LivePage() {
                 if (!supabase) throw new Error("Supabase not initialized");
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) throw new Error("Not authenticated");
-                
+
                 setUserId(session.user.id);
 
                 const response = await fetch(`${API_BASE}/games/attachable/`, {
@@ -81,17 +93,27 @@ export default function LivePage() {
         fetchLiveSessions();
     }, []);
 
+    const selectedGame = useMemo(
+        () => games.find((game) => game.id === selectedGameId) ?? games[0] ?? null,
+        [games, selectedGameId],
+    );
+
     useEffect(() => {
         const checkStreamStatus = async () => {
-            if (!selectedGame) return;
+            if (!selectedGame) {
+                setStreamInfo(null);
+                return;
+            }
+
             try {
+                if (!supabase) return;
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) return;
-                
-                const res = await fetch(
-                    `${API_BASE}/streams/session/${selectedGame.session_code}/`,
-                    { headers: { Authorization: `Bearer ${session.access_token}` } }
-                );
+
+                const res = await fetch(`${API_BASE}/streams/session/${selectedGame.session_code}/`, {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                });
+
                 if (res.ok) {
                     const data = await res.json();
                     setStreamInfo(data);
@@ -102,26 +124,74 @@ export default function LivePage() {
                 setStreamInfo(null);
             }
         };
-        
+
         checkStreamStatus();
     }, [selectedGame]);
 
-    const selectedGame = useMemo(
-        () => games.find((game) => game.id === selectedGameId) ?? games[0] ?? null,
-        [games, selectedGameId],
+    const isHost = useMemo(
+        () => Boolean(selectedGame && userId && selectedGame.created_by === userId),
+        [selectedGame, userId],
     );
 
-    const isHost = useMemo(() => {
-        return selectedGame && userId && selectedGame.created_by === userId;
-    }, [selectedGame, userId]);
+    const liveTiles = useMemo<LiveTile[]>(() => {
+        if (!selectedGame || !SRS_HTTP) return [];
+
+        return liveStreams.map((stream) => ({
+            id: stream.name,
+            label: prettifyAngle(stream.name, selectedGame.session_code),
+            hlsUrl: `${SRS_HTTP}/live/${stream.name}.m3u8`,
+            status: "live",
+            sessionCode: selectedGame.session_code,
+        }));
+    }, [liveStreams, selectedGame]);
+
+    const visibleLiveTiles = useMemo<LiveTile[]>(() => {
+        if (!streamInfo) return [];
+        return liveTiles;
+    }, [liveTiles, streamInfo]);
+
+    const sessionLiveState = useMemo<SessionLiveState>(() => {
+        if (isStarting) return "starting";
+        if (streamInfo && visibleLiveTiles.length > 0) return "live";
+        if (streamInfo) return "starting";
+        return "offline";
+    }, [isStarting, visibleLiveTiles.length, streamInfo]);
+
+    const feedModeLabel = useMemo(() => {
+        if (streamsLoading) return "Checking";
+        if (sessionLiveState === "live") return "Live";
+        if (sessionLiveState === "starting") return "Starting";
+        return "Waiting";
+    }, [sessionLiveState, streamsLoading]);
+
+    const liveGridTitle = useMemo(() => {
+        if (sessionLiveState === "starting") return "Waiting for the live feed";
+        return "No active live streams yet";
+    }, [sessionLiveState]);
+
+    const liveGridIllustration = useMemo(() => {
+        if (sessionLiveState === "starting") return "Starting Stream";
+        if (streamsLoading) return "Checking Feeds";
+        return "No Live Angles";
+    }, [sessionLiveState, streamsLoading]);
+
+    const liveGridMessage = useMemo(() => {
+        if (streamsLoading) return "Checking for active camera angles...";
+        if (streamsError) return streamsError;
+        if (!streamInfo) return "No active streams yet - open the session and tap Go Live to start a stream for this feed.";
+        if (visibleLiveTiles.length === 0) return "Stream is starting - waiting for the publisher feed to appear.";
+        return "";
+    }, [visibleLiveTiles.length, streamInfo, streamsError, streamsLoading]);
 
     const handleStartStream = async () => {
         if (!selectedGame || !userId) return;
+
         setIsStarting(true);
         try {
+            if (!supabase) throw new Error("Supabase not initialized");
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error("Not authenticated");
-            
+
             const res = await fetch(`${API_BASE}/streams/start/`, {
                 method: "POST",
                 headers: {
@@ -130,11 +200,11 @@ export default function LivePage() {
                 },
                 body: JSON.stringify({ game_id: selectedGame.id }),
             });
-            
+
             if (!res.ok) throw new Error("Failed to start stream");
             const data = await res.json();
             setStreamInfo(data);
-        } catch (err) {
+        } catch {
             alert("Failed to start stream");
         } finally {
             setIsStarting(false);
@@ -143,11 +213,13 @@ export default function LivePage() {
 
     const handleEndStream = async () => {
         if (!streamInfo) return;
+
         setIsEnding(true);
         try {
+            if (!supabase) throw new Error("Supabase not initialized");
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error("Not authenticated");
-            
+
             const res = await fetch(`${API_BASE}/streams/end/`, {
                 method: "POST",
                 headers: {
@@ -156,10 +228,10 @@ export default function LivePage() {
                 },
                 body: JSON.stringify({ stream_key: streamInfo.stream_key }),
             });
-            
+
             if (!res.ok) throw new Error("Failed to end stream");
             setStreamInfo(null);
-        } catch (err) {
+        } catch {
             alert("Failed to end stream");
         } finally {
             setIsEnding(false);
@@ -168,22 +240,46 @@ export default function LivePage() {
 
     useEffect(() => {
         if (pollRef.current) clearInterval(pollRef.current);
-        if (!selectedGame) { setLiveStreams([]); return; }
+
+        if (!selectedGame) {
+            setLiveStreams([]);
+            setStreamsLoading(false);
+            setStreamsError("");
+            return;
+        }
+
+        if (!SRS_API || !SRS_HTTP) {
+            setLiveStreams([]);
+            setStreamsLoading(false);
+            setStreamsError("Live stream playback is not configured yet.");
+            return;
+        }
 
         const fetchStreams = async () => {
+            setStreamsLoading(true);
             try {
                 const res = await fetch(`${SRS_API}/api/v1/streams/`);
+                if (!res.ok) throw new Error(`Stream server returned ${res.status}`);
+
                 const json = await res.json();
                 const all: SrsStream[] = json.streams ?? [];
-                const prefix = selectedGame.session_code.toLowerCase() + "_";
-                setLiveStreams(all.filter((s) => s.name.toLowerCase().startsWith(prefix)));
+                const prefix = `${selectedGame.session_code.toLowerCase()}_`;
+                setLiveStreams(all.filter((stream) => stream.name.toLowerCase().startsWith(prefix)));
+                setStreamsError("");
             } catch {
+                setLiveStreams([]);
+                setStreamsError("Unable to reach the live stream server right now.");
+            } finally {
+                setStreamsLoading(false);
             }
         };
 
         fetchStreams();
         pollRef.current = setInterval(fetchStreams, 5000);
-        return () => { if (pollRef.current) clearInterval(pollRef.current); };
+
+        return () => {
+            if (pollRef.current) clearInterval(pollRef.current);
+        };
     }, [selectedGame]);
 
     if (loading) {
@@ -214,7 +310,7 @@ export default function LivePage() {
                         <p className="live-eyebrow">Live Session Feed</p>
                         <h1 className="live-title">Watch sideline captures as they come in</h1>
                         <p className="live-subtitle">
-                            Live streams appear automatically as volunteers go live.
+                            Open the session and start a stream with Go Live. Once someone begins streaming, it will appear here automatically.
                         </p>
                     </div>
                     {selectedGame && (
@@ -272,13 +368,11 @@ export default function LivePage() {
 
                             <div className="live-stat-row">
                                 <div className="live-stat-card">
-                                    <span className="live-stat-value">{liveStreams.length}</span>
+                                    <span className="live-stat-value">{visibleLiveTiles.length}</span>
                                     <span className="live-stat-label">Live angles</span>
                                 </div>
                                 <div className="live-stat-card">
-                                    <span className="live-stat-value">
-                                        {liveStreams.length > 0 ? "Live" : "Waiting"}
-                                    </span>
+                                    <span className="live-stat-value">{feedModeLabel}</span>
                                     <span className="live-stat-label">Feed mode</span>
                                 </div>
                                 {isHost && (
@@ -327,16 +421,18 @@ export default function LivePage() {
                         )}
 
                         <section className="live-grid">
-                            {liveStreams.length === 0 ? (
-                                <p className="live-empty">
-                                    No active streams yet — have a volunteer scan the QR code and go live.
-                                </p>
+                            {visibleLiveTiles.length === 0 ? (
+                                <div className="live-empty-card live-empty-card--grid">
+                                    <div className="live-empty-illustration">{liveGridIllustration}</div>
+                                    <h2>{liveGridTitle}</h2>
+                                    <p>{liveGridMessage}</p>
+                                </div>
                             ) : (
-                                liveStreams.map((stream) => (
+                                visibleLiveTiles.map((stream) => (
                                     <LiveStreamPlayer
-                                        key={stream.name}
-                                        hlsUrl={`${SRS_HTTP}/live/${stream.name}.m3u8`}
-                                        label={prettifyAngle(stream.name, selectedGame.session_code)}
+                                        key={stream.id}
+                                        hlsUrl={stream.hlsUrl}
+                                        label={stream.label}
                                     />
                                 ))
                             )}

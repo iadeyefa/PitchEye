@@ -183,7 +183,7 @@ export default function UploadClip() {
         setError("");
 
         if (!video) { setError("Please select a video to upload"); return; }
-        if (!selectedGameId) { setError("Please choose a game or practice session"); return; }
+        if (!selectedGameId) { setError("Please choose a session"); return; }
 
         setLoading(true);
         try {
@@ -279,7 +279,7 @@ export default function UploadClip() {
         <div className="app-card-container">
             <div className="app-card">
                 <h1 className="app-card-title">Upload Clip</h1>
-                <p className="app-card-subtitle">Share a video and attach it to a game or practice session.</p>
+                <p className="app-card-subtitle">Share a video and attach it to a session.</p>
 
                 {error && <div className="app-card-error">{error}</div>}
 

@@ -23,7 +23,7 @@ export default function ActionModal({ isOpen, onClose }: ActionModalProps) {
 
     if (!isOpen) return null;
 
-    const handleCreateGame = () => {
+    const handleCreateSession = () => {
         onClose();
         navigate("/games/create");
     };
@@ -40,13 +40,13 @@ export default function ActionModal({ isOpen, onClose }: ActionModalProps) {
                 <p className="am-heading">What would you like to create?</p>
 
                 <div className="am-options">
-                    <button className="am-option am-option--game" onClick={handleCreateGame}>
+                    <button className="am-option am-option--game" onClick={handleCreateSession}>
                         <div className="am-option-icon">
-                            <img src="/gamecreationicon.png" alt="Create Game" width="22" height="22"></img>
+                            <img src="/gamecreationicon.png" alt="Create Session" width="22" height="22"></img>
                         </div>
                         <div className="am-option-text">
-                            <span className="am-option-title">Create Game</span>
-                            <span className="am-option-desc">Set up a session &amp; generate a QR code for your team</span>
+                            <span className="am-option-title">Create Session</span>
+                            <span className="am-option-desc">Create a game or practice session with a QR code</span>
                         </div>
                         <svg className="am-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M9 18l6-6-6-6" />

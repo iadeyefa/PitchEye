@@ -70,17 +70,17 @@ export default function LiveFeed() {
         if (sessionCode) {
           // joined via QR → fetch by session code
           const res = await fetch(`http://localhost:8000/api/games/session/${sessionCode}/`, { headers });
-          if (!res.ok) throw new Error("Game not found");
+          if (!res.ok) throw new Error("Session not found");
           const data: GameProps = await res.json();
           setGame(data);
         } else {
-          // viewer clicked Live tab : find ongoing game for their team
+          // viewer clicked Live tab : find ongoing session for their team
           const res = await fetch("http://localhost:8000/api/games/join/", { headers });
           if (res.status === 404) {
-            setGame(null); // no live game right now, not an error
+            setGame(null); // no live session right now, not an error
             return;
           }
-          if (!res.ok) throw new Error("Failed to load live game");
+          if (!res.ok) throw new Error("Failed to load live session");
           const data = await res.json();
           setGame(data.game[0]);
         }
@@ -97,7 +97,7 @@ export default function LiveFeed() {
 
   if (loading) return <div className="lf-container"><div className="lf-inner"><p className="lf-state-msg">Loading...</p></div></div>;
   if (error)   return <div className="lf-container"><div className="lf-inner"><p className="lf-state-msg lf-state-msg--error">{error}</p></div></div>;
-  if (!game)   return <div className="lf-container"><div className="lf-inner"><p className="lf-state-msg">No live game right now.</p></div></div>;
+  if (!game)   return <div className="lf-container"><div className="lf-inner"><p className="lf-state-msg">No live session right now.</p></div></div>;
   return (
     <div className="lf-container">
         <h1 className="lf-title">{game.title}</h1> 

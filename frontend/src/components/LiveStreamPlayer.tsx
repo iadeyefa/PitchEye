@@ -8,6 +8,7 @@ type Props = {
 
 export default function LiveStreamPlayer({ hlsUrl, label }: Props) {
     const videoRef = useRef<HTMLVideoElement>(null);
+    const hlsRef = useRef<Hls | null>(null);
     const [playbackError, setPlaybackError] = useState("");
 
     useEffect(() => {
@@ -15,9 +16,26 @@ export default function LiveStreamPlayer({ hlsUrl, label }: Props) {
         if (!video) return;
 
         setPlaybackError("");
-        video.pause();
-        video.removeAttribute("src");
-        video.load();
+
+        const cleanupPlayback = () => {
+            hlsRef.current?.destroy();
+            hlsRef.current = null;
+
+            try {
+                video.pause();
+            } catch {
+                // Ignore browser-specific pause failures during teardown.
+            }
+
+            try {
+                video.removeAttribute("src");
+                video.load();
+            } catch {
+                // Ignore browser-specific load/reset failures during teardown.
+            }
+        };
+
+        cleanupPlayback();
 
         const handleVideoError = () => {
             setPlaybackError("Unable to play this live stream right now.");
@@ -32,7 +50,7 @@ export default function LiveStreamPlayer({ hlsUrl, label }: Props) {
             });
 
             return () => {
-                video.pause();
+                cleanupPlayback();
                 video.removeEventListener("error", handleVideoError);
             };
         }
@@ -41,6 +59,7 @@ export default function LiveStreamPlayer({ hlsUrl, label }: Props) {
             const hls = new Hls({
                 lowLatencyMode: true,
             });
+            hlsRef.current = hls;
 
             hls.loadSource(hlsUrl);
             hls.attachMedia(video);
@@ -56,8 +75,7 @@ export default function LiveStreamPlayer({ hlsUrl, label }: Props) {
             });
 
             return () => {
-                hls.destroy();
-                video.pause();
+                cleanupPlayback();
                 video.removeEventListener("error", handleVideoError);
             };
         }

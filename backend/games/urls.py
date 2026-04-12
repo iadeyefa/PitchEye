@@ -8,4 +8,5 @@ urlpatterns = [
     path('<int:id>/', views.get_game),
     path('create/', views.create_game),
     path('join/<str:session_code>/', views.get_game_by_session_code),
+    path('join/', views.get_session_by_team),
 ]

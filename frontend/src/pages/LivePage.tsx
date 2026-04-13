@@ -146,9 +146,8 @@ export default function LivePage() {
     }, [liveStreams, selectedGame]);
 
     const visibleLiveTiles = useMemo<LiveTile[]>(() => {
-        if (!streamInfo) return [];
         return liveTiles;
-    }, [liveTiles, streamInfo]);
+    }, [liveTiles]);
 
     const sessionLiveState = useMemo<SessionLiveState>(() => {
         if (isStarting) return "starting";

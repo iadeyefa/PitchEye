@@ -12,6 +12,7 @@ import HomeFeed from "./components/HomeFeed";
 import PostView from "./components/PostView";
 import GameDetail from "./components/GameDetail";
 import TeamPage from "./pages/TeamPage";
+import LiveFeed from "./components/LiveFeed";
 
 function App() {
   const { user, loading, logout } = useAuth();

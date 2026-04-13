@@ -10,6 +10,8 @@ type Game = {
     session_code: string;
     game_time: string;
     qr_code_active?: boolean;
+    session_started?: boolean;
+    can_accept_uploads?: boolean;
 };
 
 type Team = {
@@ -162,13 +164,16 @@ export default function Profile() {
     };
 
     const isTeamLeader = userRole === "admin" || userRole === "coach";
+    const activeGames = myGames
+        .filter((game) => game.can_accept_uploads)
+        .sort((a, b) => new Date(b.game_time).getTime() - new Date(a.game_time).getTime());
     const upcomingGames = myGames
-        .filter((game) => new Date(game.game_time).getTime() >= Date.now())
+        .filter((game) => new Date(game.game_time).getTime() >= Date.now() && !game.can_accept_uploads)
         .sort((a, b) => new Date(a.game_time).getTime() - new Date(b.game_time).getTime());
     const pastGames = myGames
-        .filter((game) => new Date(game.game_time).getTime() < Date.now())
+        .filter((game) => new Date(game.game_time).getTime() < Date.now() && !game.can_accept_uploads)
         .sort((a, b) => new Date(b.game_time).getTime() - new Date(a.game_time).getTime());
-    const nextGame = upcomingGames[0] ?? null;
+    const nextSession = upcomingGames[0] ?? null;
 
     const formatGameTime = (gameTime: string) =>
         new Date(gameTime).toLocaleString(undefined, {
@@ -351,21 +356,22 @@ export default function Profile() {
                             <p className="p-empty">Loading...</p>
                         ) : (
                             <>
-                                <div className="p-highlight-card">
-                                    <p className="p-highlight-label">Next up</p>
-                                    {nextGame ? (
-                                        <>
-                                            <h3 className="p-highlight-title">{nextGame.title}</h3>
-                                            <p className="p-highlight-meta">{formatGameTime(nextGame.game_time)}</p>
-                                            <button
-                                                className="p-btn p-btn--secondary"
-                                                onClick={() => navigate(`/games/${nextGame.id}`)}
-                                            >
-                                                Open Session
-                                            </button>
-                                        </>
+                                <div className="p-section">
+                                    <h3>Active</h3>
+                                    {activeGames.length === 0 ? (
+                                        <p className="p-empty">No active sessions yet.</p>
                                     ) : (
-                                        <p className="p-empty">No upcoming sessions yet.</p>
+                                        activeGames.slice(0, 4).map((game) => (
+                                            <button key={game.id} className="p-game-item" onClick={() => navigate(`/games/${game.id}`)}>
+                                                <div className="p-game-copy">
+                                                    <span className="p-game-title">{game.title}</span>
+                                                    <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
+                                                </div>
+                                                <span className={`p-game-code ${game.qr_code_active === false ? "p-game-code--inactive" : ""}`}>
+                                                    {game.qr_code_active === false ? "Inactive" : game.session_code}
+                                                </span>
+                                            </button>
+                                        ))
                                     )}
                                 </div>
 
@@ -374,7 +380,7 @@ export default function Profile() {
                                     {upcomingGames.length === 0 ? (
                                         <p className="p-empty">Nothing scheduled yet.</p>
                                     ) : (
-                                        upcomingGames.slice(0, 4).map((game) => (
+                                        upcomingGames.slice(0, 2).map((game) => (
                                             <button key={game.id} className="p-game-item" onClick={() => navigate(`/games/${game.id}`)}>
                                                 <div className="p-game-copy">
                                                     <span className="p-game-title">{game.title}</span>
@@ -393,7 +399,7 @@ export default function Profile() {
                                     {pastGames.length === 0 ? (
                                         <p className="p-empty">No completed sessions yet.</p>
                                     ) : (
-                                        pastGames.slice(0, 3).map((game) => (
+                                        pastGames.slice(0, 2).map((game) => (
                                             <button key={game.id} className="p-game-item" onClick={() => navigate(`/games/${game.id}`)}>
                                                 <div className="p-game-copy">
                                                     <span className="p-game-title">{game.title}</span>

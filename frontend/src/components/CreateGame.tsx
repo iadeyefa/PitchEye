@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import "../styles/common.css";
 import "../styles/CreateGame.css";
@@ -12,6 +13,7 @@ type GameProps = {
 };
 
 export default function CreateGame() {
+    const navigate = useNavigate();
     const [title, setTitle] = useState("");
     const [gameTime, setGameTime] = useState("");
     const [loading, setLoading] = useState(false);
@@ -22,8 +24,8 @@ export default function CreateGame() {
         e.preventDefault();
         setError("");
 
-        if (!title.trim()) { setError("Game title is required"); return; }
-        if (!gameTime) { setError("Game time is required"); return; }
+        if (!title.trim()) { setError("Session title is required"); return; }
+        if (!gameTime) { setError("Session time is required"); return; }
 
         setLoading(true);
         try {
@@ -48,7 +50,7 @@ export default function CreateGame() {
             const game: GameProps = await response.json();
             setResult(game);
         } catch (err: unknown) {
-            setError((err as Error).message || "Failed to create game");
+            setError((err as Error).message || "Failed to create session");
         } finally {
             setLoading(false);
         }
@@ -89,7 +91,15 @@ export default function CreateGame() {
                         </div>
                     )}
 
-                    <button className="app-card-btn-secondary" onClick={reset}>+ New Game</button>
+                    <div className="cg-success-actions">
+                        <button
+                            className="app-card-btn-primary"
+                            onClick={() => navigate(`/games/${result.id}`)}
+                        >
+                            Open Session
+                        </button>
+                        <button className="app-card-btn-secondary" onClick={reset}>+ New Session</button>
+                    </div>
                 </div>
             </div>
         );
@@ -98,19 +108,19 @@ export default function CreateGame() {
     return (
         <div className="app-card-container">
             <div className="app-card">
-                <h1 className="app-card-title">Create Game</h1>
-                <p className="app-card-subtitle">Set up a new session for your team</p>
+                <h1 className="app-card-title">Create Session</h1>
+                <p className="app-card-subtitle">Set up a new game or practice session for your team</p>
 
                 {error && <div className="app-card-error">{error}</div>}
 
                 <form onSubmit={handleSubmit} className="app-card-form">
                     <div className="app-card-field">
-                        <label className="app-card-label" htmlFor="game-title">Game Title</label>
+                        <label className="app-card-label" htmlFor="game-title">Session Title</label>
                         <input
                             id="game-title"
                             className="app-card-input"
                             type="text"
-                            placeholder="Enter Game Title"
+                            placeholder="Enter Session Title"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             disabled={loading}
@@ -130,7 +140,7 @@ export default function CreateGame() {
                     </div>
 
                     <button type="submit" className="app-card-btn-primary" disabled={loading}>
-                        {loading ? "Generating..." : "Create Game"}
+                        {loading ? "Generating..." : "Create Session"}
                     </button>
                 </form>
             </div>

@@ -15,6 +15,7 @@ type ActiveGame = {
     session_code: string;
     game_time: string;
     can_accept_uploads?: boolean;
+    session_started?: boolean;
     created_by: string;
 };
 
@@ -50,7 +51,13 @@ export default function LivePage() {
     const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
     const [isStarting, setIsStarting] = useState(false);
     const [isEnding, setIsEnding] = useState(false);
+    const [isEndingSession, setIsEndingSession] = useState(false);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const selectedGame = useMemo(
+        () => games.find((game) => game.id === selectedGameId) ?? games[0] ?? null,
+        [games, selectedGameId],
+    );
 
     useEffect(() => {
         const fetchLiveSessions = async () => {
@@ -85,6 +92,7 @@ export default function LivePage() {
         const checkStreamStatus = async () => {
             if (!selectedGame) return;
             try {
+                if (!supabase) return;
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) return;
                 
@@ -106,19 +114,51 @@ export default function LivePage() {
         checkStreamStatus();
     }, [selectedGame]);
 
-    const selectedGame = useMemo(
-        () => games.find((game) => game.id === selectedGameId) ?? games[0] ?? null,
-        [games, selectedGameId],
-    );
-
     const isHost = useMemo(() => {
         return selectedGame && userId && selectedGame.created_by === userId;
     }, [selectedGame, userId]);
+
+    const handleStreamInactive = (streamName: string) => {
+        setLiveStreams((current) => current.filter((stream) => stream.name !== streamName));
+    };
+
+    const handleEndSession = async () => {
+        if (!selectedGame || !isHost || isEndingSession || selectedGame.session_started === false) return;
+
+        const confirmed = window.confirm("End this session now? Players will no longer be able to join or upload clips.");
+        if (!confirmed) return;
+
+        setIsEndingSession(true);
+        try {
+            if (!supabase) throw new Error("Supabase not initialized");
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Not authenticated");
+
+            const res = await fetch(`${API_BASE}/games/${selectedGame.id}/end/`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(payload.error || "Failed to end session");
+
+            const remainingGames = games.filter((game) => game.id !== selectedGame.id);
+            setGames(remainingGames);
+            setSelectedGameId((current) => (current === selectedGame.id ? remainingGames[0]?.id ?? null : current));
+            setStreamInfo(null);
+            setLiveStreams([]);
+        } catch {
+            alert("Failed to end session");
+        } finally {
+            setIsEndingSession(false);
+        }
+    };
 
     const handleStartStream = async () => {
         if (!selectedGame || !userId) return;
         setIsStarting(true);
         try {
+            if (!supabase) throw new Error("Supabase not initialized");
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error("Not authenticated");
             
@@ -145,6 +185,7 @@ export default function LivePage() {
         if (!streamInfo) return;
         setIsEnding(true);
         try {
+            if (!supabase) throw new Error("Supabase not initialized");
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error("Not authenticated");
             
@@ -168,7 +209,7 @@ export default function LivePage() {
 
     useEffect(() => {
         if (pollRef.current) clearInterval(pollRef.current);
-        if (!selectedGame) { setLiveStreams([]); return; }
+        if (!selectedGame || !streamInfo) { setLiveStreams([]); return; }
 
         const fetchStreams = async () => {
             try {
@@ -184,7 +225,7 @@ export default function LivePage() {
         fetchStreams();
         pollRef.current = setInterval(fetchStreams, 5000);
         return () => { if (pollRef.current) clearInterval(pollRef.current); };
-    }, [selectedGame]);
+    }, [selectedGame, streamInfo]);
 
     if (loading) {
         return (
@@ -214,7 +255,7 @@ export default function LivePage() {
                         <p className="live-eyebrow">Live Session Feed</p>
                         <h1 className="live-title">Watch sideline captures as they come in</h1>
                         <p className="live-subtitle">
-                            Live streams appear automatically as volunteers go live.
+                            Live streams appear automatically as teammates go live.
                         </p>
                     </div>
                     {selectedGame && (
@@ -293,43 +334,31 @@ export default function LivePage() {
                                             </button>
                                         ) : (
                                             <button
-                                                className="live-open-btn"
+                                                className="live-open-btn live-open-btn--danger"
                                                 onClick={handleEndStream}
                                                 disabled={isEnding}
-                                                style={{ backgroundColor: "#dc2626" }}
                                             >
                                                 {isEnding ? "Ending..." : "End Stream"}
                                             </button>
                                         )}
+                                        <button
+                                            className="live-open-btn live-open-btn--danger-soft"
+                                            onClick={handleEndSession}
+                                            disabled={isEndingSession || selectedGame.session_started === false}
+                                        >
+                                            {isEndingSession ? "Ending Session..." : "End Session"}
+                                        </button>
                                     </div>
                                 )}
                             </div>
                         </section>
 
-                        {streamInfo && (
-                            <section className="live-session-card">
-                                <div className="live-session-header">
-                                    <div>
-                                        <div className="live-status-row">
-                                            <span className="live-status-dot" style={{ backgroundColor: "#22c55e" }} />
-                                            <span className="live-status-text">You are live</span>
-                                        </div>
-                                        <h2 className="live-session-title">Stream Key</h2>
-                                        <p className="live-session-meta" style={{ fontFamily: "monospace" }}>
-                                            {streamInfo.stream_key}
-                                        </p>
-                                    </div>
-                                </div>
-                                <p style={{ fontSize: "0.875rem", color: "#666", marginTop: "0.5rem" }}>
-                                    RTMP URL: {streamInfo.rtmp_url}
-                                </p>
-                            </section>
-                        )}
-
                         <section className="live-grid">
                             {liveStreams.length === 0 ? (
                                 <p className="live-empty">
-                                    No active streams yet — have a volunteer scan the QR code and go live.
+                                    {streamInfo
+                                        ? "Your stream is live. Waiting for more angles to join this session."
+                                        : "No active streams yet — have a teammate scan the QR code and go live."}
                                 </p>
                             ) : (
                                 liveStreams.map((stream) => (
@@ -337,6 +366,7 @@ export default function LivePage() {
                                         key={stream.name}
                                         hlsUrl={`${SRS_HTTP}/live/${stream.name}.m3u8`}
                                         label={prettifyAngle(stream.name, selectedGame.session_code)}
+                                        onInactive={() => handleStreamInactive(stream.name)}
                                     />
                                 ))
                             )}

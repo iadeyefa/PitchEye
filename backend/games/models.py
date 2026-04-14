@@ -14,6 +14,7 @@ Fields:
 - is_synchronized: bool (default false)
 - is_processed: bool (default false)
 - created_at: timestamp (auto, default now())
+- ended_at: timestamp (nullable, set when a session is ended early)
 
 Constraints:
 - Unique constraint on session_code

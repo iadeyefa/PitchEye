@@ -1,47 +1,44 @@
-import React, { useEffect, useRef } from "react";
-import Hls from "hls.js";
+import React, { useRef, useState } from "react";
+import SmartVideo from "./SmartVideo";
 
 type Props = {
     hlsUrl: string;
     label: string;
+    onInactive?: () => void;
 };
 
-export default function LiveStreamPlayer({ hlsUrl, label }: Props) {
-    const videoRef = useRef<HTMLVideoElement>(null);
+export default function LiveStreamPlayer({ hlsUrl, label, onInactive }: Props) {
+    const [expanded, setExpanded] = useState(false);
+    const expandedVideoRef = useRef<HTMLVideoElement | null>(null);
 
-    useEffect(() => {
-        const video = videoRef.current;
+    const handleOpenFullscreen = async () => {
+        const video = expandedVideoRef.current;
         if (!video) return;
 
-        if (Hls.isSupported()) {
-            const hls = new Hls({
-                lowLatencyMode: true,
-                manifestLoadingMaxRetry: 20,
-                manifestLoadingRetryDelay: 2000,
-                manifestLoadingMaxRetryTimeout: 10000,
-            });
-            hls.loadSource(hlsUrl);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.play().catch(() => {});
-            });
-            return () => hls.destroy();
-        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-            video.src = hlsUrl;
-            video.play().catch(() => {});
+        if (document.fullscreenElement) {
+            await document.exitFullscreen().catch(() => undefined);
+            return;
         }
-    }, [hlsUrl]);
+
+        await video.requestFullscreen?.().catch(() => undefined);
+    };
 
     return (
+        <>
         <article className="live-card">
             <div className="live-thumb live-thumb--video">
-                <video
-                    ref={videoRef}
+                <SmartVideo
+                    src={hlsUrl}
                     muted
-                    playsInline
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    autoPlay
+                    className="live-inline-video"
+                    onInactive={onInactive}
+                    liveEdge
                 />
                 <div className="live-badge">Recording live</div>
+                <button type="button" className="live-expand-btn" onClick={() => setExpanded(true)}>
+                    Expand
+                </button>
             </div>
             <div className="live-card-body">
                 <div className="live-card-top">
@@ -49,5 +46,41 @@ export default function LiveStreamPlayer({ hlsUrl, label }: Props) {
                 </div>
             </div>
         </article>
+        {expanded && (
+            <div className="live-viewer-overlay" onClick={() => setExpanded(false)} role="presentation">
+                <div
+                    className="live-viewer-modal"
+                    onClick={(event) => event.stopPropagation()}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`Expanded stream for ${label}`}
+                >
+                    <div className="live-viewer-header">
+                        <h3 className="live-viewer-title">{label}</h3>
+                        <div className="live-viewer-actions">
+                            <button type="button" className="live-viewer-control" onClick={handleOpenFullscreen}>
+                                Full Screen
+                            </button>
+                            <button type="button" className="live-viewer-close" onClick={() => setExpanded(false)}>
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                    <div className="live-viewer-video-shell">
+                        <SmartVideo
+                            src={hlsUrl}
+                            controls
+                            videoRef={expandedVideoRef}
+                            className="live-viewer-video"
+                            onInactive={onInactive}
+                            liveEdge
+                            autoPlay
+                        />
+                        <div className="live-live-pill">Live</div>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 }

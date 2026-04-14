@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import SmartVideo from "./SmartVideo";
 import "../styles/common.css";
 import "../styles/HomeFeed.css";
 
@@ -16,6 +17,17 @@ type FeedPost = {
         email?: string;
     };
     game_title?: string | null;
+    comment_count?: number;
+    comments?: FeedComment[];
+};
+
+type FeedComment = {
+    id: number;
+    body: string;
+    user?: {
+        username?: string;
+        email?: string;
+    };
 };
 
 const formatTimestamp = (value?: string) => {
@@ -55,6 +67,9 @@ const getPostSummary = (post: FeedPost) => {
 
 const getUploaderLabel = (post: FeedPost) =>
     post.uploader?.username?.trim() || post.uploader?.email?.split("@")[0] || "teammate";
+
+const getCommentAuthor = (comment: FeedComment) =>
+    comment.user?.username?.trim() || comment.user?.email?.split("@")[0] || "teammate";
 
 export default function HomeFeed() {
     const navigate = useNavigate();
@@ -126,31 +141,48 @@ export default function HomeFeed() {
                     <p className="hf-empty">{posts.length === 0 ? "No team clips yet" : "No posts found"}</p>
                 )}
                 {filtered.map((post) => (
-                    <div
-                        key={post.id}
-                        className="hf-post-card"
-                        onClick={() => navigate(`/post/${post.id}`)}
-                    >
+                    <div key={post.id} className="hf-post-card" onClick={() => navigate(`/post/${post.id}`)}>
                         <div className="hf-thumbnail">
-                            <video
+                            <SmartVideo
                                 className="hf-video"
                                 src={post.video_url}
                                 controls
-                                playsInline
                                 preload="metadata"
                                 onClick={(e) => e.stopPropagation()}
-                            >
-                                Your browser does not support video playback.
-                            </video>
+                            />
                         </div>
 
                         <div className="hf-post-meta">
+                            <div className="hf-post-actions">
+                                <span className="hf-action-btn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                    </svg>
+                                    {post.comment_count ?? 0}
+                                </span>
+                            </div>
                             <div className="hf-post-footer">
                                 <span className="hf-username">@{getUploaderLabel(post)}</span>
                                 <span className="hf-timestamp">{formatTimestamp(post.uploaded_at)}</span>
                             </div>
                             <p className="hf-caption">{getPostSummary(post)}</p>
                             {post.game_title && <p className="hf-subtitle">{post.game_title}</p>}
+
+                            {(post.comments?.length ?? 0) > 0 && (
+                                <div className="hf-comment-preview">
+                                    {post.comments!.slice(-2).map((comment) => (
+                                        <p key={comment.id} className="hf-comment-line">
+                                            <span className="hf-comment-author">@{getCommentAuthor(comment)}</span>{" "}
+                                            <span className="hf-comment-body">{comment.body}</span>
+                                        </p>
+                                    ))}
+                                    {(post.comment_count ?? 0) > 2 && (
+                                        <p className="hf-comment-more">
+                                            View all {post.comment_count} comments
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}

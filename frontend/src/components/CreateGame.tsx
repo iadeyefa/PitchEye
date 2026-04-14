@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import "../styles/common.css";
 import "../styles/CreateGame.css";
@@ -12,6 +13,7 @@ type GameProps = {
 };
 
 export default function CreateGame() {
+    const navigate = useNavigate();
     const [title, setTitle] = useState("");
     const [gameTime, setGameTime] = useState("");
     const [loading, setLoading] = useState(false);
@@ -89,7 +91,17 @@ export default function CreateGame() {
                         </div>
                     )}
 
-                    <button className="app-card-btn-secondary" onClick={reset}>+ New Game</button>
+                    <div className="cg-result-actions">
+                        <button className="app-card-btn-primary" onClick={() => navigate(`/games/${result.id}`)}>
+                            Open Session
+                        </button>
+                        <button className="app-card-btn-secondary" onClick={() => navigate(`/upload?gameId=${result.id}`)}>
+                            Upload To Session
+                        </button>
+                        <button className="app-card-btn-secondary" onClick={reset}>
+                            + New Game
+                        </button>
+                    </div>
                 </div>
             </div>
         );

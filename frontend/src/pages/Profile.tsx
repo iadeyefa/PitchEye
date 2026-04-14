@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import "../styles/ProfilePage.css";
 import { useAuth } from "../AuthContext";
@@ -10,6 +10,8 @@ type Game = {
     session_code: string;
     game_time: string;
     qr_code_active?: boolean;
+    can_accept_uploads?: boolean;
+    session_started?: boolean;
 };
 
 type Team = {
@@ -40,6 +42,10 @@ export default function Profile() {
     const [joinCode, setJoinCode] = useState("");
     const [joinError, setJoinError] = useState("");
     const [loading, setLoading] = useState(true);
+    const [endingGameId, setEndingGameId] = useState<number | null>(null);
+    const [editingGameId, setEditingGameId] = useState<number | null>(null);
+    const [gameTimeDraft, setGameTimeDraft] = useState("");
+    const [savingGameTime, setSavingGameTime] = useState(false);
     const [userRole, setUserRole] = useState<string>("");
     const [teamMode, setTeamMode] = useState<'join' | 'create'>('join');
     const [newTeamName, setNewTeamName] = useState("");
@@ -47,38 +53,23 @@ export default function Profile() {
     const isValidEmail = (email: string) =>
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-    const getToken = async () => {
+    const getToken = useCallback(async () => {
         if (!supabase) throw new Error("Supabase not initialized");
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error("Not authenticated");
         return session.access_token;
-    };
-
-    useEffect(() => {
-        fetchAll();
     }, []);
 
-    const fetchAll = async () => {
-        try {
-            const token = await getToken();
-            await Promise.all([fetchMyGames(token), fetchMyTeam(token)]);
-        } catch (err: unknown) {
-            setError((err as Error).message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchMyGames = async (token: string) => {
+    const fetchMyGames = useCallback(async (token: string) => {
         const response = await fetch("http://localhost:8000/api/games/my/", {
             headers: { Authorization: `Bearer ${token}` },
         });
         if (!response.ok) throw new Error(`Error ${response.status}`);
         const data = await response.json();
         setMyGames(data);
-    };
+    }, []);
 
-    const fetchMyTeam = async (token: string) => {
+    const fetchMyTeam = useCallback(async (token: string) => {
         const profileRes = await fetch("http://localhost:8000/api/users/get_user/", {
             headers: { Authorization: `Bearer ${token}` },
         });
@@ -95,11 +86,26 @@ export default function Profile() {
         const response = await fetch("http://localhost:8000/api/teams/my/", {
             headers: { Authorization: `Bearer ${token}` },
         });
-        if (response.status === 404 || response.status === 403) return; // no team yet
+        if (response.status === 404 || response.status === 403) return;
         if (!response.ok) throw new Error(`Error ${response.status}`);
         const data = await response.json();
         setTeam(data.team);
-    };
+    }, [user]);
+
+    const fetchAll = useCallback(async () => {
+        try {
+            const token = await getToken();
+            await Promise.all([fetchMyGames(token), fetchMyTeam(token)]);
+        } catch (err: unknown) {
+            setError((err as Error).message);
+        } finally {
+            setLoading(false);
+        }
+    }, [fetchMyGames, fetchMyTeam, getToken]);
+
+    useEffect(() => {
+        fetchAll();
+    }, [fetchAll]);
 
     const handleCreateTeam = async () => {
         setJoinError("");
@@ -165,16 +171,168 @@ export default function Profile() {
     const upcomingGames = myGames
         .filter((game) => new Date(game.game_time).getTime() >= Date.now())
         .sort((a, b) => new Date(a.game_time).getTime() - new Date(b.game_time).getTime());
-    const pastGames = myGames
-        .filter((game) => new Date(game.game_time).getTime() < Date.now())
+    const activeGames = myGames
+        .filter((game) => game.can_accept_uploads)
         .sort((a, b) => new Date(b.game_time).getTime() - new Date(a.game_time).getTime());
-    const nextGame = upcomingGames[0] ?? null;
+    const pastGames = myGames
+        .filter((game) => new Date(game.game_time).getTime() < Date.now() && !game.can_accept_uploads)
+        .sort((a, b) => new Date(b.game_time).getTime() - new Date(a.game_time).getTime());
 
     const formatGameTime = (gameTime: string) =>
         new Date(gameTime).toLocaleString(undefined, {
             dateStyle: "medium",
             timeStyle: "short",
         });
+
+    const toDateTimeLocalValue = (gameTime: string) => {
+        const date = new Date(gameTime);
+        const offset = date.getTimezoneOffset();
+        const localDate = new Date(date.getTime() - offset * 60000);
+        return localDate.toISOString().slice(0, 16);
+    };
+
+    const handleEndSession = async (game: Game) => {
+        if (endingGameId || !game.can_accept_uploads) return;
+
+        const confirmed = window.confirm(`End "${game.title}" now? Players will no longer be able to join or upload clips.`);
+        if (!confirmed) return;
+
+        setError("");
+        setSuccess("");
+        setEndingGameId(game.id);
+        try {
+            const token = await getToken();
+            const response = await fetch(`http://localhost:8000/api/games/${game.id}/end/`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(payload.error || "Failed to end session");
+            }
+
+            setMyGames((current) => current.map((item) => (item.id === game.id ? payload : item)));
+            setSuccess(`Ended "${game.title}".`);
+        } catch (err: unknown) {
+            setError((err as Error).message || "Failed to end session");
+        } finally {
+            setEndingGameId(null);
+        }
+    };
+
+    const handleStartEditingGame = (game: Game) => {
+        setEditingGameId(game.id);
+        setGameTimeDraft(toDateTimeLocalValue(game.game_time));
+        setError("");
+        setSuccess("");
+    };
+
+    const handleSaveGameTime = async (game: Game) => {
+        if (!gameTimeDraft) {
+            setError("A new start time is required");
+            return;
+        }
+
+        setSavingGameTime(true);
+        setError("");
+        setSuccess("");
+        try {
+            const token = await getToken();
+            const response = await fetch(`http://localhost:8000/api/games/${game.id}/update/`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ game_time: gameTimeDraft }),
+            });
+
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(payload.error || "Failed to update session");
+            }
+
+            setMyGames((current) => current.map((item) => (item.id === game.id ? payload : item)));
+            setEditingGameId(null);
+            setGameTimeDraft("");
+            setSuccess(`Updated "${game.title}" start time.`);
+        } catch (err: unknown) {
+            setError((err as Error).message || "Failed to update session");
+        } finally {
+            setSavingGameTime(false);
+        }
+    };
+
+    const renderSessionCard = (game: Game, options?: { allowEnd?: boolean; allowReschedule?: boolean }) => {
+        const isEditing = editingGameId === game.id;
+
+        return (
+            <div key={game.id} className="p-game-item">
+                <button className="p-game-main" onClick={() => navigate(`/games/${game.id}`)}>
+                    <div className="p-game-copy">
+                        <span className="p-game-title">{game.title}</span>
+                        <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
+                    </div>
+                    <span className={`p-game-code ${game.qr_code_active === false ? "p-game-code--inactive" : ""}`}>
+                        {game.qr_code_active === false ? "Inactive" : game.session_code}
+                    </span>
+                </button>
+
+                {(options?.allowEnd || options?.allowReschedule) && (
+                    <div className="p-game-actions">
+                        {options.allowEnd && (
+                            <button
+                                className="p-game-action p-game-action--danger"
+                                onClick={() => handleEndSession(game)}
+                                disabled={endingGameId === game.id}
+                            >
+                                {endingGameId === game.id ? "Ending..." : "End Session"}
+                            </button>
+                        )}
+                        {options.allowReschedule && !isEditing && (
+                            <button
+                                className="p-game-action"
+                                onClick={() => handleStartEditingGame(game)}
+                            >
+                                Change Start Time
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {options?.allowReschedule && isEditing && (
+                    <div className="p-game-edit-row">
+                        <input
+                            className="p-input"
+                            type="datetime-local"
+                            value={gameTimeDraft}
+                            onChange={(e) => setGameTimeDraft(e.target.value)}
+                        />
+                        <div className="p-game-actions">
+                            <button
+                                className="p-game-action"
+                                onClick={() => handleSaveGameTime(game)}
+                                disabled={savingGameTime}
+                            >
+                                {savingGameTime ? "Saving..." : "Save"}
+                            </button>
+                            <button
+                                className="p-game-action p-game-action--ghost"
+                                onClick={() => {
+                                    setEditingGameId(null);
+                                    setGameTimeDraft("");
+                                }}
+                                disabled={savingGameTime}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     const handleChangeEmail = async () => {
         if (!supabase) return;
@@ -351,21 +509,12 @@ export default function Profile() {
                             <p className="p-empty">Loading...</p>
                         ) : (
                             <>
-                                <div className="p-highlight-card">
-                                    <p className="p-highlight-label">Next up</p>
-                                    {nextGame ? (
-                                        <>
-                                            <h3 className="p-highlight-title">{nextGame.title}</h3>
-                                            <p className="p-highlight-meta">{formatGameTime(nextGame.game_time)}</p>
-                                            <button
-                                                className="p-btn p-btn--secondary"
-                                                onClick={() => navigate(`/games/${nextGame.id}`)}
-                                            >
-                                                Open Session
-                                            </button>
-                                        </>
+                                <div className="p-section">
+                                    <h3>Active</h3>
+                                    {activeGames.length === 0 ? (
+                                        <p className="p-empty">No active sessions right now.</p>
                                     ) : (
-                                        <p className="p-empty">No upcoming sessions yet.</p>
+                                        activeGames.slice(0, 2).map((game) => renderSessionCard(game, { allowEnd: true }))
                                     )}
                                 </div>
 
@@ -374,17 +523,7 @@ export default function Profile() {
                                     {upcomingGames.length === 0 ? (
                                         <p className="p-empty">Nothing scheduled yet.</p>
                                     ) : (
-                                        upcomingGames.slice(0, 4).map((game) => (
-                                            <button key={game.id} className="p-game-item" onClick={() => navigate(`/games/${game.id}`)}>
-                                                <div className="p-game-copy">
-                                                    <span className="p-game-title">{game.title}</span>
-                                                    <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
-                                                </div>
-                                                <span className={`p-game-code ${game.qr_code_active === false ? "p-game-code--inactive" : ""}`}>
-                                                    {game.qr_code_active === false ? "Inactive" : game.session_code}
-                                                </span>
-                                            </button>
-                                        ))
+                                        upcomingGames.slice(0, 2).map((game) => renderSessionCard(game, { allowReschedule: true }))
                                     )}
                                 </div>
 
@@ -393,17 +532,7 @@ export default function Profile() {
                                     {pastGames.length === 0 ? (
                                         <p className="p-empty">No completed sessions yet.</p>
                                     ) : (
-                                        pastGames.slice(0, 3).map((game) => (
-                                            <button key={game.id} className="p-game-item" onClick={() => navigate(`/games/${game.id}`)}>
-                                                <div className="p-game-copy">
-                                                    <span className="p-game-title">{game.title}</span>
-                                                    <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
-                                                </div>
-                                                <span className={`p-game-code ${game.qr_code_active === false ? "p-game-code--inactive" : ""}`}>
-                                                    {game.qr_code_active === false ? "Inactive" : game.session_code}
-                                                </span>
-                                            </button>
-                                        ))
+                                        pastGames.slice(0, 2).map((game) => renderSessionCard(game))
                                     )}
                                 </div>
                             </>

@@ -14,11 +14,7 @@ import GameDetail from "./components/GameDetail";
 import TeamPage from "./pages/TeamPage";
 
 function App() {
-  const { user, loading, logout } = useAuth();
-
-  const handleLogout = async () => {
-    await logout();
-  };
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (

@@ -13,6 +13,7 @@ type Game = {
     qr_code_active?: boolean;
     session_started?: boolean;
     can_accept_uploads?: boolean;
+    manually_ended?: boolean;
 };
 
 type Clip = {
@@ -43,7 +44,9 @@ export default function GameDetail() {
     const [syncCurrentTime, setSyncCurrentTime] = useState(0);
     const [syncPlaying, setSyncPlaying] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [endingSession, setEndingSession] = useState(false);
     const [error, setError] = useState("");
+    const [sessionFeedback, setSessionFeedback] = useState("");
     const [shareFeedback, setShareFeedback] = useState("");
     const videoRefs = useRef<Record<number, HTMLVideoElement | null>>({});
     const playbackAnchorRef = useRef<{ wallClock: number; timeline: number } | null>(null);
@@ -69,6 +72,7 @@ export default function GameDetail() {
             const clipsData = await clipsResponse.json();
             setGame(data[0]);
             setClips(clipsData);
+            setSessionFeedback("");
         } catch (err: unknown) {
             setError((err as Error).message);
         } finally {
@@ -273,6 +277,40 @@ export default function GameDetail() {
         setSyncOpen(true);
     };
 
+    const handleEndSession = async () => {
+        if (!game || endingSession || !game.session_started) return;
+
+        const confirmed = window.confirm("End this session now? Players will no longer be able to join or upload clips.");
+        if (!confirmed) return;
+
+        setEndingSession(true);
+        setError("");
+        setSessionFeedback("");
+
+        try {
+            if (!supabase) throw new Error("Supabase not initialized");
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Not authenticated");
+
+            const response = await fetch(`http://localhost:8000/api/games/${game.id}/end/`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(payload.error || `Error ${response.status}`);
+            }
+
+            setGame(payload);
+            setSessionFeedback("Session ended. The code is now inactive.");
+        } catch (err: unknown) {
+            setError((err as Error).message || "Unable to end session");
+        } finally {
+            setEndingSession(false);
+        }
+    };
+
     if (loading) return <div className="app-card-container"><div className="app-card"><p style={{color:'white'}}>Loading...</p></div></div>;
     if (error || !game) return <div className="app-card-container"><div className="app-card"><p style={{color:'#f87171'}}>{error || "Game not found"}</p></div></div>;
 
@@ -293,6 +331,8 @@ export default function GameDetail() {
                     })}
                 </p>
 
+                {sessionFeedback && <div className="app-card-success">{sessionFeedback}</div>}
+
                 <div className="cg-session-block">
                     <span className="cg-session-label">SESSION CODE</span>
                     <span className={`cg-session-code ${game.qr_code_active ? "" : "cg-session-code--inactive"}`}>
@@ -304,7 +344,7 @@ export default function GameDetail() {
                     <div className="cg-qr-wrapper">
                         <img src={game.qr_code_url} alt="QR Code" className="cg-qr" />
                         <p className="app-card-hint">
-                            {game.can_accept_uploads ? "Scan to join" : game.qr_code_active ? "Session has not started yet" : "QR code expired"}
+                            {game.can_accept_uploads ? "Scan to join" : game.qr_code_active ? "Session has not started yet" : "Session inactive"}
                         </p>
                     </div>
                 ) : (
@@ -315,13 +355,33 @@ export default function GameDetail() {
                 )}
 
                 <div className="cg-session-actions">
-                    {game.can_accept_uploads ? (
-                        <button className="app-card-btn-primary" onClick={() => navigate(`/upload?gameId=${game.id}`)}>
-                            Upload Clip To Session
-                        </button>
+                    {game.qr_code_active ? (
+                        <>
+                            {game.can_accept_uploads ? (
+                                <>
+                                    <button className="app-card-btn-primary" onClick={() => navigate(`/upload?gameId=${game.id}`)}>
+                                        Upload Clip To Session
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="app-card-btn-secondary cg-end-session-btn"
+                                        onClick={handleEndSession}
+                                        disabled={endingSession}
+                                    >
+                                        {endingSession ? "Ending Session..." : "End Session"}
+                                    </button>
+                                </>
+                            ) : (
+                                <div className="cg-expired-note">
+                                    This session has not started yet, so clips cannot be attached to it yet.
+                                </div>
+                            )}
+                        </>
                     ) : (
                         <div className="cg-expired-note">
-                            {game.qr_code_active
+                            {game.manually_ended
+                                ? "This session was ended manually, so new clips can no longer be attached to it."
+                                : game.qr_code_active
                                 ? "This session has not started yet, so clips cannot be attached to it yet."
                                 : "This session QR code has expired, so new clips can no longer be attached to it."}
                         </div>

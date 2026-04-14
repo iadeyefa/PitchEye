@@ -27,7 +27,7 @@ type ProfileData = {
 };
 
 export default function Profile() {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [profileName, setProfileName] = useState("");
     const [profileNameDraft, setProfileNameDraft] = useState("");
@@ -49,6 +49,7 @@ export default function Profile() {
     const [userRole, setUserRole] = useState<string>("");
     const [teamMode, setTeamMode] = useState<'join' | 'create'>('join');
     const [newTeamName, setNewTeamName] = useState("");
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
     const isValidEmail = (email: string) =>
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -360,6 +361,38 @@ export default function Profile() {
         }
     };
 
+    const handleLogout = async () => {
+        try {
+            await logout();
+            navigate("/login");
+        } catch (err: unknown) {
+            setError((err as Error).message || "Failed to log out");
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        const confirmed = window.confirm(
+            "Are you sure you want to delete your account? This cannot be undone."
+        );
+        if (!confirmed) return;
+
+        setIsDeletingAccount(true);
+        setError("");
+        try {
+            const token = await getToken();
+            const res = await fetch("http://localhost:8000/api/users/delete_user/", {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error("Failed to delete account");
+            await logout();
+            navigate("/login");
+        } catch (err: unknown) {
+            setError((err as Error).message || "Failed to delete account");
+            setIsDeletingAccount(false);
+        }
+    };
+
     const handleProfileNameSave = async () => {
         if (!profileNameDraft.trim()) {
             setError("Name is required");
@@ -492,6 +525,14 @@ export default function Profile() {
                                 Update Password
                             </button>
                         </div>
+
+                        <div className="p-section">
+                            <h3>Session</h3>
+                            <button className="p-btn p-btn--secondary" onClick={handleLogout}>
+                                Log Out
+                            </button>
+                        </div>
+
                     </section>
 
                     <section className="p-card">
@@ -623,6 +664,16 @@ export default function Profile() {
                             </>
                         )}
                     </section>
+                </div>
+
+                <div style={{ textAlign: "center", paddingTop: "16px", paddingBottom: "16px" }}>
+                    <button
+                        className="p-game-action p-game-action--danger"
+                        onClick={handleDeleteAccount}
+                        disabled={isDeletingAccount}
+                    >
+                        {isDeletingAccount ? "Deleting..." : "Delete Account"}
+                    </button>
                 </div>
             </div>
         </div>

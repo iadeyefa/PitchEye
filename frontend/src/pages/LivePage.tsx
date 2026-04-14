@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import LiveStreamPlayer from "../components/LiveStreamPlayer";
@@ -53,6 +53,7 @@ export default function LivePage() {
     const [isEnding, setIsEnding] = useState(false);
     const [isEndingSession, setIsEndingSession] = useState(false);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const deadStreamsRef = useRef<Set<string>>(new Set());
 
     const selectedGame = useMemo(
         () => games.find((game) => game.id === selectedGameId) ?? games[0] ?? null,
@@ -119,6 +120,7 @@ export default function LivePage() {
     }, [selectedGame, userId]);
 
     const handleStreamInactive = (streamName: string) => {
+        deadStreamsRef.current.add(streamName);
         setLiveStreams((current) => current.filter((stream) => stream.name !== streamName));
     };
 
@@ -216,9 +218,25 @@ export default function LivePage() {
                 const res = await fetch(`${SRS_API}/api/v1/streams/`);
                 const json = await res.json();
                 const all: SrsStream[] = json.streams ?? [];
+                const srsNames = new Set(all.map((s) => s.name));
+
+                // Once SRS confirms a dead stream is fully gone, clear its suppression
+                // so a future stream with the same name can appear again
+                deadStreamsRef.current.forEach((name) => {
+                    if (!srsNames.has(name)) deadStreamsRef.current.delete(name);
+                });
+
                 const prefix = selectedGame.session_code.toLowerCase() + "_";
-                setLiveStreams(all.filter((s) => s.name.toLowerCase().startsWith(prefix)));
+                const next = all.filter(
+                    (s) => s.name.toLowerCase().startsWith(prefix) && !deadStreamsRef.current.has(s.name)
+                );
+                setLiveStreams((prev) => {
+                    const prevKey = prev.map((s) => s.name).sort().join(",");
+                    const nextKey = next.map((s) => s.name).sort().join(",");
+                    return prevKey === nextKey ? prev : next;
+                });
             } catch {
+                // keep the current list on transient failures — don't clear on error
             }
         };
 

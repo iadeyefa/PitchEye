@@ -3,6 +3,7 @@
     "name": "PitchEye",
     "slug": "pitcheye-qr-scanner",
     "version": "1.0.0",
+    "orientation": "default",
     "sdkVersion": "54.0.0",
     "platforms": [
       "ios",

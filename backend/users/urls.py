@@ -6,5 +6,5 @@ urlpatterns = [
     path('get_user/',views.get_user),
     path('create_user/',views.create_user),
     path('update_user/', views.update_user),
-
+    path('delete_user/', views.delete_user),
 ]

@@ -7,5 +7,13 @@
   },
   "name": "PitchEye",
   "version": "1.0.0",
-  "scripts": {}
+  "scripts": {
+    "dev": "concurrently --names \"backend,frontend,mobile\" --prefix-colors \"yellow,cyan,magenta\" \"npm run backend\" \"npm run frontend\" \"npm run mobile\"",
+    "backend": "cd backend && python manage.py runserver 0.0.0.0:8000",
+    "frontend": "cd frontend && npm start",
+    "mobile": "cd mobile && npx expo start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
 }

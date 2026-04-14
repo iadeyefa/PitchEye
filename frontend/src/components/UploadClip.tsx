@@ -183,6 +183,7 @@ export default function UploadClip() {
         setError("");
 
         if (!video) { setError("Please select a video to upload"); return; }
+        if (video.size > 50 * 1024 * 1024) { setError("Video must be smaller than 50 MB. Please trim or compress it before uploading."); return; }
         if (!selectedGameId) { setError("Please choose a session"); return; }
 
         setLoading(true);
@@ -317,7 +318,14 @@ export default function UploadClip() {
                             onDrop={(e) => {
                                 e.preventDefault();
                                 const file = e.dataTransfer.files[0];
-                                if (file?.type.startsWith("video/")) setVideo(file);
+                                if (file?.type.startsWith("video/")) {
+                                    if (file.size > 50 * 1024 * 1024) {
+                                        setError("Video must be smaller than 50 MB. Please trim or compress it before uploading.");
+                                        return;
+                                    }
+                                    setError("");
+                                    setVideo(file);
+                                }
                             }}
                         >
                             {video ? (
@@ -347,7 +355,15 @@ export default function UploadClip() {
                             disabled={loading}
                             onChange={(e) => {
                                 const file = e.target.files?.[0];
-                                if (file) setVideo(file);
+                                if (file) {
+                                    if (file.size > 50 * 1024 * 1024) {
+                                        setError("Video must be smaller than 50 MB. Please trim or compress it before uploading.");
+                                        e.target.value = "";
+                                        return;
+                                    }
+                                    setError("");
+                                    setVideo(file);
+                                }
                             }}
                         />
                     </div>

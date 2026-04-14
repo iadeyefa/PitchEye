@@ -138,3 +138,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Allow large video file uploads (500 MB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 524288000
+FILE_UPLOAD_MAX_MEMORY_SIZE = 524288000

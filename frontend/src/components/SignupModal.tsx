@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { useAuth } from "../AuthContext";
+
+import { supabase } from "../supabaseClient";
 import "../styles/SignupModal.css";
 
 type SignupModalProps = {
@@ -25,45 +26,28 @@ const checkTeamCode = async (code: string) => {
   }
 }
 
-const enterUser = async (firstName: string, lastName: string, email: string, role: string, teamID: string,userId?: string) => {
-    try {
-    const response = await fetch('http://localhost:8000/api/users/create_user/', {
-      method: 'POST', 
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({userId, firstName, lastName, email, role, teamID}), 
-    });
+const enterUser = async (firstName: string, lastName: string, email: string, role: string, team_id: string, userId?: string) => {
+  const response = await fetch('http://localhost:8000/api/users/create_user/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, firstName, lastName, email, role, team_id }),
+  });
+  if (!response.ok) throw new Error('Failed to create user profile');
+  return response.json();
+};
 
-    if (!response.ok) {
-      throw new Error('Network response was not ok');
-    }
-
-    return await response.json(); 
-  } catch (error) {
-    console.error('There has been a problem with your fetch operation:', error);
-  }
-}
-
-const enterTeam = async (teamName: string, adminID?: string) => {
-    try {
-    const response = await fetch('http://localhost:8000/api/teams/create_team/', {
-      method: 'POST', 
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({teamName, adminID}), 
-    });
-
-    if (!response.ok) {
-      throw new Error('Network response was not ok');
-    }
-
-    return await response.json(); 
-  } catch (error) {
-    console.error('There has been a problem with your fetch operation:', error);
-  }
-}
+const enterTeam = async (teamName: string, token: string) => {
+  const response = await fetch('http://localhost:8000/api/teams/create_team/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ team_name: teamName }),
+  });
+  if (!response.ok) throw new Error('Failed to create team');
+  return response.json();
+};
 
 export default function SignupModal({
   isOpen,
@@ -80,8 +64,6 @@ export default function SignupModal({
   const [teamCode, setTeamCode] = useState('');
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [teamId, setTeamId] = useState("");
-  const { signup } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -107,21 +89,31 @@ export default function SignupModal({
       return;
     }
 
-    if (role != 'admin') {
-      if (!teamCode)
-      {setError("Please enter a team code");
-      return;}
+    let resolvedTeamId = '';
+    if (role !== 'admin') {
+      if (!teamCode) { setError("Please enter a team code"); return; }
       const data = await checkTeamCode(teamCode);
       if (!data || data.length === 0) { setError("Team does not exist"); return; }
-      setTeamId(data[0]['id'])  
+      resolvedTeamId = data[0]['id'];
     }
 
     setLoading(true);
     try {
-      const userId = await signup(email, password);
+      // Sign up directly to capture the session token immediately
+      const { data: authData, error: authError } = await supabase!.auth.signUp({ email, password });
+      if (authError) throw authError;
 
-      enterUser(firstName,lastName, email, role, teamId, userId)
-      if(role=='admin') await enterTeam(teamName, userId)
+      const userId = authData.user?.id;
+      const token = authData.session?.access_token ?? '';
+
+      // Create profile first — create_team requires the profile to exist with the correct role
+      await enterUser(firstName, lastName, email, role, resolvedTeamId, userId);
+
+      if (role === 'admin') {
+        // Profile now exists with role='admin', backend creates team and sets profiles.team_id
+        await enterTeam(teamName, token);
+      }
+
       setEmail("");
       setPassword("");
       setConfirmPassword("");

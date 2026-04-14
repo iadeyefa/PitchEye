@@ -70,7 +70,9 @@ export default function PostView() {
     const navigate = useNavigate();
     const [post, setPost] = useState<Post | null>(null);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+    const [deletingClip, setDeletingClip] = useState(false);
     const [showTags, setShowTags] = useState(false);
     const [comments, setComments] = useState<CommentItem[]>([]);
     const [commentBody, setCommentBody] = useState("");
@@ -92,11 +94,14 @@ export default function PostView() {
                 if (!id) throw new Error("Post not found");
                 setCurrentUserId(session.user.id);
 
-                const [response, teamResponse] = await Promise.all([
+                const [response, teamResponse, userResponse] = await Promise.all([
                     fetch(`http://localhost:8000/api/videos/${id}/`, {
                         headers: { Authorization: `Bearer ${session.access_token}` },
                     }),
                     fetch("http://localhost:8000/api/teams/my/", {
+                        headers: { Authorization: `Bearer ${session.access_token}` },
+                    }),
+                    fetch("http://localhost:8000/api/users/get_user/", {
                         headers: { Authorization: `Bearer ${session.access_token}` },
                     }),
                 ]);
@@ -115,6 +120,11 @@ export default function PostView() {
                     setTeamMembers(teamData.members || []);
                 } else {
                     setTeamMembers([]);
+                }
+
+                if (userResponse.ok) {
+                    const userData = await userResponse.json();
+                    setCurrentUserRole(userData[0]?.role ?? null);
                 }
             } catch (err: unknown) {
                 setError((err as Error).message || "Unable to load post");
@@ -225,6 +235,30 @@ export default function PostView() {
             setError((err as Error).message || "Unable to post comment");
         } finally {
             setSubmittingComment(false);
+        }
+    };
+
+    const handleDeleteClip = async () => {
+        if (!supabase || !id || deletingClip) return;
+        if (!window.confirm("Delete this clip? This cannot be undone.")) return;
+
+        setDeletingClip(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Not authenticated");
+
+            const response = await fetch(`http://localhost:8000/api/videos/${id}/delete/`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || "Unable to delete clip");
+
+            navigate(-1);
+        } catch (err: unknown) {
+            setError((err as Error).message || "Unable to delete clip");
+            setDeletingClip(false);
         }
     };
 
@@ -360,6 +394,15 @@ export default function PostView() {
                                 <p className="pv-caption">{getCaption(post)}</p>
                                 <span className="pv-timestamp">{formatTimestamp(post.uploaded_at)}</span>
                             </div>
+                            {(currentUserRole === "admin" || currentUserRole === "coach") && (
+                                <button
+                                    className="pv-comment-delete"
+                                    onClick={handleDeleteClip}
+                                    disabled={deletingClip}
+                                >
+                                    {deletingClip ? "Deleting..." : "Delete Clip"}
+                                </button>
+                            )}
                         </div>
 
                         <section className="pv-comments">

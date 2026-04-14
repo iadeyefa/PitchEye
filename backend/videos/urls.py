@@ -9,4 +9,5 @@ urlpatterns = [
     path('comments/<int:comment_id>/', views.delete_video_comment),
     path('game/<int:game_id>/', views.list_videos_for_game),
     path('<int:video_id>/', views.get_video),
+    path('<int:video_id>/delete/', views.delete_video),
 ]

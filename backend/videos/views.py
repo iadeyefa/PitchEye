@@ -360,6 +360,9 @@ def upload_video(request):
     except Exception as exc:
         return Response({'error': f'Failed to store video: {exc}'}, status=500)
 
+    caption = (request.data.get('caption') or '').strip()
+    tagged_players = _normalize_tagged_players(request.data.get('tagged_players'))
+
     payload = {
         'game_id': int(game_id),
         'uploaded_by': str(user.id),
@@ -372,6 +375,8 @@ def upload_video(request):
         'time_offset': _optional_float(request.data.get('time_offset')),
         'start_time': _optional_float(request.data.get('start_time')),
         'end_time': _optional_float(request.data.get('end_time')),
+        'caption': caption,
+        'tagged_players': tagged_players,
         'is_processed': False,
     }
 
@@ -453,8 +458,54 @@ def delete_video_comment(request, comment_id):
     return Response({'message': 'Comment deleted'})
 
 
-"""
-TODO: 
-- Post Video
-- Delete Video
-"""
+@api_view(['DELETE'])
+def delete_video(request, video_id):
+    user = check_user(request.headers.get('Authorization'))
+
+    # Check the user's role
+    profile = _execute_query(
+        lambda: supabase_admin.table('profiles').select('role, team_id').eq('id', str(user.id)),
+        fallback=_FallbackResponse([]),
+    )
+    if not profile.data:
+        return Response({'error': 'User not found'}, status=404)
+
+    user_role = profile.data[0].get('role')
+    user_team_id = profile.data[0].get('team_id')
+
+    if user_role not in ('admin', 'coach'):
+        return Response({'error': 'Not authorized to delete clips'}, status=403)
+
+    # Fetch the clip and verify it belongs to the same team
+    member_ids, team_id = _get_team_member_ids_for_user(user)
+    if not team_id or not member_ids:
+        return Response({'error': 'Video not found'}, status=404)
+
+    clip_data = _execute_query(
+        lambda: (
+            supabase_admin
+            .table('video_clips')
+            .select('*')
+            .eq('id', video_id)
+            .in_('uploaded_by', member_ids)
+        ),
+        fallback=_FallbackResponse([]),
+    )
+    if not clip_data.data:
+        return Response({'error': 'Video not found'}, status=404)
+
+    clip = clip_data.data[0]
+
+    # Delete the file from storage if it is a stored path (not an external URL)
+    video_path = clip.get('video_url')
+    if video_path and not video_path.startswith(('http://', 'https://')):
+        try:
+            supabase_admin.storage.from_(VIDEO_BUCKET).remove([video_path])
+        except Exception:
+            pass  # Don't block deletion if storage removal fails
+
+    # Delete comments then the clip row
+    supabase_admin.table('comments').delete().eq('video_id', video_id).execute()
+    supabase_admin.table('video_clips').delete().eq('id', video_id).execute()
+
+    return Response({'message': 'Clip deleted'})

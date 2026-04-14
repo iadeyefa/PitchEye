@@ -180,10 +180,10 @@ def leave_team(request):
 @api_view(['POST'])
 def join_team(request):
     user = check_user(request.headers.get('Authorization'))
-    join_code = request.data.get('join_code', '').upper()
+    join_code = request.data.get('join_code', '').strip().upper()
 
     team = _execute_query(
-        lambda: supabase.table('teams').select('*').eq('join_code', join_code),
+        lambda: supabase_admin.table('teams').select('*').eq('join_code', join_code),
         fallback=_FallbackResponse([]),
     )
     if not team.data:

@@ -3,10 +3,10 @@ import json
 import os
 import time
 import uuid
+import requests as _requests
 from utils.supabase_client import supabase, supabase_admin
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from storage3.exceptions import StorageApiError
 from utils.helpers import check_user
 from games.views import has_session_started, is_qr_code_active, serialize_game
 
@@ -314,6 +314,8 @@ def upload_video(request):
     game_id = request.data.get('game_id')
     video = request.FILES.get('video')
 
+    print(f"[upload] game_id={game_id} video={getattr(video, 'name', None)} bucket={VIDEO_BUCKET}")
+
     if not game_id:
         return Response({'error': 'Session selection is required'}, status=400)
     if not video:
@@ -330,22 +332,31 @@ def upload_video(request):
     content_type = getattr(video, 'content_type', None) or 'video/mp4'
     extension = os.path.splitext(video.name)[1] or '.mp4'
     file_path = f"{user.id}/{game_id}/{uuid.uuid4().hex}{extension}"
+    print(f"[upload] reading file...")
     video_bytes = video.read()
+    print(f"[upload] file read: {len(video_bytes)} bytes — uploading to Supabase storage...")
 
     try:
-        supabase_admin.storage.from_(VIDEO_BUCKET).upload(
-            file_path,
-            video_bytes,
-            file_options={"content-type": content_type},
+        _supabase_url = os.getenv('SUPABASE_URL', '').rstrip('/')
+        _service_key = os.getenv('SUPABASE_SERVICE_KEY') or os.getenv('SUPABASE_KEY', '')
+        _upload_url = f"{_supabase_url}/storage/v1/object/{VIDEO_BUCKET}/{file_path}"
+        _resp = _requests.post(
+            _upload_url,
+            headers={
+                'Authorization': f'Bearer {_service_key}',
+                'Content-Type': content_type,
+            },
+            data=video_bytes,
+            timeout=300,
         )
-    except StorageApiError as exc:
-        exc_message = str(exc)
-        if "Bucket not found" in exc_message:
+        if _resp.status_code == 404:
             return Response(
                 {'error': f'Storage bucket "{VIDEO_BUCKET}" was not found. Set SUPABASE_VIDEO_BUCKET to an existing bucket name.'},
                 status=500,
             )
-        return Response({'error': f'Failed to store video: {exc_message}'}, status=500)
+        if not _resp.ok:
+            return Response({'error': f'Failed to store video: {_resp.text}'}, status=500)
+        print(f"[upload] storage upload done — inserting into video_clips...")
     except Exception as exc:
         return Response({'error': f'Failed to store video: {exc}'}, status=500)
 

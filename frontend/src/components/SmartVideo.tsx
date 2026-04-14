@@ -32,6 +32,8 @@ export default function SmartVideo({
 }: Props) {
     const internalVideoRef = useRef<HTMLVideoElement>(null);
     const videoRef = externalVideoRef ?? internalVideoRef;
+    const onInactiveRef = useRef(onInactive);
+    onInactiveRef.current = onInactive;
 
     useEffect(() => {
         const video = videoRef.current;
@@ -49,7 +51,7 @@ export default function SmartVideo({
         };
 
         const scheduleInactiveCheck = () => {
-            if (!onInactive) return;
+            if (!onInactiveRef.current) return;
             clearInactiveCheck();
             inactiveTimeout = setTimeout(() => {
                 const currentVideo = videoRef.current;
@@ -57,7 +59,7 @@ export default function SmartVideo({
                 const progressed = currentVideo.currentTime > lastCurrentTime + 0.2;
                 lastCurrentTime = currentVideo.currentTime;
                 if (!progressed && !currentVideo.paused) {
-                    onInactive();
+                    onInactiveRef.current?.();
                 } else {
                     scheduleInactiveCheck();
                 }
@@ -70,14 +72,14 @@ export default function SmartVideo({
         };
 
         const handleEndedOrStalled = () => {
-            onInactive?.();
+            onInactiveRef.current?.();
         };
 
         video.pause();
         video.removeAttribute("src");
         video.load();
 
-        if (onInactive) {
+        if (onInactiveRef.current) {
             video.addEventListener("playing", handleProgress);
             video.addEventListener("timeupdate", handleProgress);
             video.addEventListener("stalled", handleEndedOrStalled);
@@ -142,15 +144,13 @@ export default function SmartVideo({
 
         return () => {
             clearInactiveCheck();
-            if (onInactive) {
-                video.removeEventListener("playing", handleProgress);
-                video.removeEventListener("timeupdate", handleProgress);
-                video.removeEventListener("stalled", handleEndedOrStalled);
-                video.removeEventListener("ended", handleEndedOrStalled);
-            }
+            video.removeEventListener("playing", handleProgress);
+            video.removeEventListener("timeupdate", handleProgress);
+            video.removeEventListener("stalled", handleEndedOrStalled);
+            video.removeEventListener("ended", handleEndedOrStalled);
             hls?.destroy();
         };
-    }, [autoPlay, liveEdge, onInactive, src, videoRef]);
+    }, [autoPlay, liveEdge, src, videoRef]);
 
     return (
         <video

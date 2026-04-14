@@ -26,13 +26,16 @@ def create_user(request):
     team_id = request.data.get('team_id')
     username = ' '.join(part for part in [f_name, l_name] if part).strip() or email.split('@')[0]
 
-    data = supabase_admin.table('profiles').insert({
+    if not team_id:
+        team_id = None
+
+    data = supabase_admin.table('profiles').upsert({
         'id': u_id,
         'email': email,
         'role': role,
         'team_id': team_id,
         'username': username,
-    }).execute()
+    }, on_conflict='id').execute()
     return Response(data.data)
 
 

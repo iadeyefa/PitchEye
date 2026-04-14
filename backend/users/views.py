@@ -47,8 +47,19 @@ def update_user(request):
     data = supabase_admin.table('profiles').update({'username': username}).eq('id', str(user.id)).execute()
     return Response(data.data[0] if data.data else {'username': username})
 
-"""
-TODO: 
-- Change profile information
-- Delete user
-"""
+@api_view(['DELETE'])
+def delete_user(request):
+    user = check_user(request.headers.get('Authorization'))
+    user_id = str(user.id)
+
+    # If this user is a team admin, clear their admin_id from the team
+    supabase_admin.table('teams').update({'admin_id': None}).eq('admin_id', user_id).execute()
+
+    # Remove from any team membership, then delete profile (includes role)
+    supabase_admin.table('profiles').update({'team_id': None, 'role': None}).eq('id', user_id).execute()
+    supabase_admin.table('profiles').delete().eq('id', user_id).execute()
+
+    # Delete the auth user last
+    supabase_admin.auth.admin.delete_user(user_id)
+
+    return Response({'message': 'Account deleted'}, status=200)

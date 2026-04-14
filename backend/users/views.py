@@ -1,3 +1,5 @@
+import time
+
 from django.shortcuts import render
 from utils.supabase_client import supabase, supabase_admin
 from rest_framework.decorators import api_view
@@ -5,15 +7,38 @@ from rest_framework.response import Response
 from utils.helpers import check_user
 
 
+def _execute_query(query_factory, attempts=3, delay=0.15):
+    last_error = None
+
+    for attempt in range(attempts):
+        try:
+            return query_factory().execute()
+        except Exception as exc:
+            last_error = exc
+            if attempt == attempts - 1:
+                break
+            time.sleep(delay * (attempt + 1))
+
+    raise last_error
+
+
 @api_view(['GET'])
 def list_users(request):
-    data = supabase.table('profiles').select('*').execute()
+    data = _execute_query(lambda: supabase.table('profiles').select('*'))
     return Response(data.data)
 
 @api_view(['GET'])
 def get_user(request):
     user = check_user(request.headers.get('Authorization'))
-    data = supabase_admin.table('profiles').select('*').eq('id', str(user.id)).execute()
+    try:
+        data = _execute_query(
+            lambda: supabase_admin.table('profiles').select('*').eq('id', str(user.id))
+        )
+    except Exception:
+        return Response(
+            {'error': 'Unable to load your profile right now. Please try again.'},
+            status=503,
+        )
     return Response(data.data)
 
 @api_view(['POST'])
@@ -29,13 +54,15 @@ def create_user(request):
     if not team_id:
         team_id = None
 
-    data = supabase_admin.table('profiles').upsert({
-        'id': u_id,
-        'email': email,
-        'role': role,
-        'team_id': team_id,
-        'username': username,
-    }, on_conflict='id').execute()
+    data = _execute_query(
+        lambda: supabase_admin.table('profiles').upsert({
+            'id': u_id,
+            'email': email,
+            'role': role,
+            'team_id': team_id,
+            'username': username,
+        }, on_conflict='id')
+    )
     return Response(data.data)
 
 
@@ -47,7 +74,9 @@ def update_user(request):
     if not username:
         return Response({'error': 'Name is required'}, status=400)
 
-    data = supabase_admin.table('profiles').update({'username': username}).eq('id', str(user.id)).execute()
+    data = _execute_query(
+        lambda: supabase_admin.table('profiles').update({'username': username}).eq('id', str(user.id))
+    )
     return Response(data.data[0] if data.data else {'username': username})
 
 @api_view(['DELETE'])
@@ -56,11 +85,17 @@ def delete_user(request):
     user_id = str(user.id)
 
     # If this user is a team admin, clear their admin_id from the team
-    supabase_admin.table('teams').update({'admin_id': None}).eq('admin_id', user_id).execute()
+    _execute_query(
+        lambda: supabase_admin.table('teams').update({'admin_id': None}).eq('admin_id', user_id)
+    )
 
     # Remove from any team membership, then delete profile (includes role)
-    supabase_admin.table('profiles').update({'team_id': None, 'role': None}).eq('id', user_id).execute()
-    supabase_admin.table('profiles').delete().eq('id', user_id).execute()
+    _execute_query(
+        lambda: supabase_admin.table('profiles').update({'team_id': None, 'role': None}).eq('id', user_id)
+    )
+    _execute_query(
+        lambda: supabase_admin.table('profiles').delete().eq('id', user_id)
+    )
 
     # Delete the auth user last
     supabase_admin.auth.admin.delete_user(user_id)

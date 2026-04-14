@@ -142,3 +142,5 @@ STATIC_URL = 'static/'
 # Allow large video file uploads (500 MB)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 524288000
 FILE_UPLOAD_MAX_MEMORY_SIZE = 524288000
+FILE_UPLOAD_TEMP_DIR = str(BASE_DIR / '.upload_tmp')
+os.makedirs(FILE_UPLOAD_TEMP_DIR, exist_ok=True)

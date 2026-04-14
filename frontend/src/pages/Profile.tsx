@@ -3,21 +3,26 @@ import { supabase } from "../supabaseClient";
 import "../styles/ProfilePage.css";
 import { useAuth } from "../AuthContext";
 import { useNavigate } from "react-router-dom";
+import { canUserCreateTeamSessions } from "../utils/sessionPermissions";
 
 type Game = {
     id: number;
     title: string;
     session_code: string;
     game_time: string;
+    created_by?: string;
     qr_code_active?: boolean;
     can_accept_uploads?: boolean;
     session_started?: boolean;
+    owned_by_current_user?: boolean;
 };
 
 type Team = {
     id: number;
     name: string;
     join_code: string;
+    admin_id?: string;
+    session_creation_access?: string;
 };
 
 type ProfileData = {
@@ -169,6 +174,7 @@ export default function Profile() {
     };
 
     const isTeamLeader = userRole === "admin" || userRole === "coach";
+    const canCreateSessions = canUserCreateTeamSessions(userRole, team, user?.id);
     const upcomingGames = myGames
         .filter((game) => new Date(game.game_time).getTime() >= Date.now())
         .sort((a, b) => new Date(a.game_time).getTime() - new Date(b.game_time).getTime());
@@ -267,6 +273,7 @@ export default function Profile() {
 
     const renderSessionCard = (game: Game, options?: { allowEnd?: boolean; allowReschedule?: boolean }) => {
         const isEditing = editingGameId === game.id;
+        const isOwnedByCurrentUser = game.owned_by_current_user !== false;
 
         return (
             <div key={game.id} className="p-game-item">
@@ -274,13 +281,16 @@ export default function Profile() {
                     <div className="p-game-copy">
                         <span className="p-game-title">{game.title}</span>
                         <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
+                        {!isOwnedByCurrentUser && (
+                            <span className="p-game-note">Shared from your team</span>
+                        )}
                     </div>
                     <span className={`p-game-code ${game.qr_code_active === false ? "p-game-code--inactive" : ""}`}>
                         {game.qr_code_active === false ? "Inactive" : game.session_code}
                     </span>
                 </button>
 
-                {(options?.allowEnd || options?.allowReschedule) && (
+                {isOwnedByCurrentUser && (options?.allowEnd || options?.allowReschedule) && (
                     <div className="p-game-actions">
                         {options.allowEnd && (
                             <button
@@ -540,10 +550,13 @@ export default function Profile() {
                             <div>
                                 <p className="p-eyebrow">Activity</p>
                                 <h2 className="p-section-title">My Sessions</h2>
+                                <p className="p-title">Includes sessions you created and sessions shared with your team.</p>
                             </div>
-                            <button className="p-btn p-btn--secondary p-btn--inline" onClick={() => navigate("/games/create")}>
-                                Create Session
-                            </button>
+                            {canCreateSessions && (
+                                <button className="p-btn p-btn--secondary p-btn--inline" onClick={() => navigate("/games/create")}>
+                                    Create Session
+                                </button>
+                            )}
                         </div>
 
                         {loading ? (

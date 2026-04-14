@@ -60,10 +60,12 @@ export default function SignupModal({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState('');
+  const [teamAction, setTeamAction] = useState<'join' | 'create'>('join');
   const [teamName, setTeamName] = useState('');
   const [teamCode, setTeamCode] = useState('');
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const canCreateTeam = role === "admin" || role === "coach";
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -84,13 +86,18 @@ export default function SignupModal({
       return;
     }
 
-    if (role === 'admin' && !teamName) {
+    if (!role) {
+      setError("Please select a role");
+      return;
+    }
+
+    if (canCreateTeam && teamAction === 'create' && !teamName.trim()) {
       setError("Please enter a team name");
       return;
     }
 
     let resolvedTeamId = '';
-    if (role !== 'admin') {
+    if (!canCreateTeam || teamAction === 'join') {
       if (!teamCode) { setError("Please enter a team code"); return; }
       const data = await checkTeamCode(teamCode);
       if (!data || data.length === 0) { setError("Team does not exist"); return; }
@@ -109,14 +116,18 @@ export default function SignupModal({
       // Create profile first — create_team requires the profile to exist with the correct role
       await enterUser(firstName, lastName, email, role, resolvedTeamId, userId);
 
-      if (role === 'admin') {
-        // Profile now exists with role='admin', backend creates team and sets profiles.team_id
-        await enterTeam(teamName, token);
+      if (canCreateTeam && teamAction === 'create') {
+        // Profile now exists with the correct leadership role, so the backend can create and attach a team.
+        await enterTeam(teamName.trim(), token);
       }
 
       setEmail("");
       setPassword("");
       setConfirmPassword("");
+      setRole("");
+      setTeamAction("join");
+      setTeamName("");
+      setTeamCode("");
       onSignupSuccess();
       onClose();
     } catch (err: unknown) {
@@ -176,7 +187,17 @@ export default function SignupModal({
 
           <div className="form-group">
             <label>Please select your role:</label>
-            <select title='role-select' onChange={(e) => setRole(e.target.value)} value={role}>
+            <select
+              title='role-select'
+              onChange={(e) => {
+                const nextRole = e.target.value;
+                setRole(nextRole);
+                setTeamAction(nextRole === "admin" || nextRole === "coach" ? "create" : "join");
+                setTeamName("");
+                setTeamCode("");
+              }}
+              value={role}
+            >
               <option value="">-- Select a Role --</option>
               <option value="admin">Admin</option>
               <option value="coach">Coach</option>
@@ -184,11 +205,43 @@ export default function SignupModal({
               <option value="parent">Parent</option>
               <option value="viewer">Viewer</option>
             </select>
-            {role === 'admin' && (
-              <input type="text" placeholder="Team Name" onChange={(e) => setTeamName(e.target.value)} />
+            {canCreateTeam && (
+              <div className="signup-team-choice">
+                <button
+                  type="button"
+                  className={`signup-team-choice-btn ${teamAction === "create" ? "signup-team-choice-btn--active" : ""}`}
+                  onClick={() => setTeamAction("create")}
+                  disabled={loading}
+                >
+                  Create Team
+                </button>
+                <button
+                  type="button"
+                  className={`signup-team-choice-btn ${teamAction === "join" ? "signup-team-choice-btn--active" : ""}`}
+                  onClick={() => setTeamAction("join")}
+                  disabled={loading}
+                >
+                  Join Team
+                </button>
+              </div>
             )}
-            {role && role !== 'admin' && (
-              <input type="text" placeholder="Team Code" onChange={(e) => setTeamCode(e.target.value)} />
+            {role && (!canCreateTeam || teamAction === 'join') && (
+              <input
+                type="text"
+                placeholder="Team Code"
+                value={teamCode}
+                onChange={(e) => setTeamCode(e.target.value.toUpperCase())}
+                disabled={loading}
+              />
+            )}
+            {canCreateTeam && teamAction === 'create' && (
+              <input
+                type="text"
+                placeholder="Team Name"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                disabled={loading}
+              />
             )}
           </div>
           <button

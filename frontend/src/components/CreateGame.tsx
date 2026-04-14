@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import "../styles/common.css";
 import "../styles/CreateGame.css";
+import { useAuth } from "../AuthContext";
+import { canUserCreateTeamSessions, describeSessionCreationAccess } from "../utils/sessionPermissions";
 
 type GameProps = {
     id: number;
@@ -13,12 +15,47 @@ type GameProps = {
 };
 
 export default function CreateGame() {
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [title, setTitle] = useState("");
     const [gameTime, setGameTime] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [result, setResult] = useState<GameProps | null>(null);
+    const [accessLoading, setAccessLoading] = useState(true);
+    const [canCreateSessions, setCanCreateSessions] = useState(true);
+    const [sessionPolicyLabel, setSessionPolicyLabel] = useState("");
+
+    React.useEffect(() => {
+        const loadPermission = async () => {
+            try {
+                if (!supabase) throw new Error("Supabase not initialized");
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) throw new Error("Not authenticated");
+
+                const profileRes = await fetch("http://localhost:8000/api/users/get_user/", {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                });
+                const teamRes = await fetch("http://localhost:8000/api/teams/my/", {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                });
+
+                const profileData = profileRes.ok ? await profileRes.json() : [];
+                const teamData = teamRes.ok ? await teamRes.json() : null;
+                const role = profileData[0]?.role;
+                const team = teamData?.team ?? null;
+                setCanCreateSessions(canUserCreateTeamSessions(role, team, user?.id));
+                setSessionPolicyLabel(team ? describeSessionCreationAccess(team.session_creation_access) : "");
+            } catch (_err) {
+                setCanCreateSessions(true);
+                setSessionPolicyLabel("");
+            } finally {
+                setAccessLoading(false);
+            }
+        };
+
+        loadPermission();
+    }, [user?.id]);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -107,11 +144,27 @@ export default function CreateGame() {
         );
     }
 
+    if (!accessLoading && !canCreateSessions) {
+        return (
+            <div className="app-card-container">
+                <div className="app-card">
+                    <h1 className="app-card-title">Create Session</h1>
+                    <p className="app-card-subtitle">{sessionPolicyLabel || "You do not have permission to create sessions for this team."}</p>
+                    <div className="app-card-error">Your team owner has limited who can create new sessions.</div>
+                    <button className="app-card-btn-secondary" onClick={() => navigate(-1)}>
+                        Go Back
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="app-card-container">
             <div className="app-card">
                 <h1 className="app-card-title">Create Session</h1>
                 <p className="app-card-subtitle">Set up a new game or practice session for your team</p>
+                {accessLoading && <p className="app-card-hint">Checking your team permissions...</p>}
 
                 {error && <div className="app-card-error">{error}</div>}
 
@@ -141,7 +194,7 @@ export default function CreateGame() {
                         />
                     </div>
 
-                    <button type="submit" className="app-card-btn-primary" disabled={loading}>
+                    <button type="submit" className="app-card-btn-primary" disabled={loading || accessLoading}>
                         {loading ? "Generating..." : "Create Session"}
                     </button>
                 </form>

@@ -213,7 +213,23 @@
     transition: border-color 0.15s;
 }
 
+.p-select {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 1rem;
+    color: white;
+    width: 100%;
+    box-sizing: border-box;
+}
+
 .p-input:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.p-select:focus {
     outline: none;
     border-color: rgba(255, 255, 255, 0.3);
 }
@@ -294,6 +310,14 @@
     gap: 8px;
 }
 
+.p-game-item--schedule {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 18px;
+}
+
 .p-game-item:hover {
     background: rgba(255, 255, 255, 0.08);
 }
@@ -330,11 +354,31 @@
     color: rgba(255, 255, 255, 0.45);
 }
 
+.p-game-note {
+    font-size: 0.75rem;
+    color: #8de2b2;
+}
+
 .p-game-code {
     font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.4);
     letter-spacing: 0.1em;
     align-self: flex-start;
+}
+
+.p-game-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.p-game-code-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.34);
 }
 
 .p-game-actions {
@@ -380,6 +424,17 @@
     color: rgba(255, 255, 255, 0.28);
 }
 
+@media (max-width: 560px) {
+    .p-game-item--schedule {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .p-game-side {
+        align-items: flex-start;
+    }
+}
+
 .p-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
@@ -422,6 +477,12 @@
 
 .p-team-summary--membership {
     align-items: stretch;
+}
+
+.p-team-setting-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .p-team-kicker,

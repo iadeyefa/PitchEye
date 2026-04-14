@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient";
 import { useAuth } from "../AuthContext";
 import "../styles/ProfilePage.css";
 import "../styles/common.css";
+import { canUserCreateTeamSessions, describeSessionCreationAccess } from "../utils/sessionPermissions";
 
 type Member = {
     id: string;
@@ -15,6 +16,8 @@ type Team = {
     id: number;
     name: string;
     join_code: string;
+    admin_id?: string;
+    session_creation_access?: string;
 };
 
 type Game = {
@@ -32,6 +35,8 @@ export default function TeamPage() {
     const [teamNameDraft, setTeamNameDraft] = useState("");
     const [isEditingTeamName, setIsEditingTeamName] = useState(false);
     const [teamNameLoading, setTeamNameLoading] = useState(false);
+    const [sessionAccessDraft, setSessionAccessDraft] = useState("staff_only");
+    const [sessionAccessLoading, setSessionAccessLoading] = useState(false);
     const [members, setMembers] = useState<Member[]>([]);
     const [games, setGames] = useState<Game[]>([]);
     const [loading, setLoading] = useState(true);
@@ -65,6 +70,7 @@ export default function TeamPage() {
             const teamData = await teamRes.json();
             setTeam(teamData.team);
             setTeamNameDraft(teamData.team.name);
+            setSessionAccessDraft(teamData.team.session_creation_access || "staff_only");
             setMembers(teamData.members);
             setGames(teamData.games);
 
@@ -80,6 +86,8 @@ export default function TeamPage() {
     };
 
     const isTeamLeader = userRole === "admin" || userRole === "coach";
+    const isTeamOwner = team?.admin_id === user?.id;
+    const canCreateSessions = canUserCreateTeamSessions(userRole, team, user?.id);
     const upcomingGames = games
         .filter((game) => new Date(game.game_time).getTime() >= Date.now())
         .sort((a, b) => new Date(a.game_time).getTime() - new Date(b.game_time).getTime());
@@ -92,6 +100,25 @@ export default function TeamPage() {
             dateStyle: "medium",
             timeStyle: "short",
         });
+
+    const renderScheduleCard = (game: Game) => (
+        <button
+            key={game.id}
+            className="p-game-item p-game-item--schedule"
+            onClick={() => navigate(`/games/${game.id}`)}
+        >
+            <div className="p-game-copy">
+                <span className="p-game-title">{game.title}</span>
+                <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
+            </div>
+            <div className="p-game-side">
+                <span className="p-game-code-label">Session Code</span>
+                <span className={`p-game-code ${game.qr_code_active === false ? "p-game-code--inactive" : ""}`}>
+                    {game.qr_code_active === false ? "Inactive" : game.session_code}
+                </span>
+            </div>
+        </button>
+    );
 
     const handleCopyCode = async () => {
         if (!team) return;
@@ -138,6 +165,39 @@ export default function TeamPage() {
             setError((err as Error).message || "Failed to update team name");
         } finally {
             setTeamNameLoading(false);
+        }
+    };
+
+    const handleSessionAccessSave = async () => {
+        if (!team) return;
+
+        setError("");
+        setSessionAccessLoading(true);
+        try {
+            if (!supabase) throw new Error("Supabase not initialized");
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Not authenticated");
+
+            const response = await fetch(`http://localhost:8000/api/teams/${team.id}/update/`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ session_creation_access: sessionAccessDraft }),
+            });
+
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(payload.error || "Failed to update session permissions");
+            }
+
+            setTeam(payload);
+            setSessionAccessDraft(payload.session_creation_access || "staff_only");
+        } catch (err: unknown) {
+            setError((err as Error).message || "Failed to update session permissions");
+        } finally {
+            setSessionAccessLoading(false);
         }
     };
 
@@ -203,6 +263,33 @@ export default function TeamPage() {
 
                     {copyMessage && <div className="p-success">{copyMessage}</div>}
 
+                    <div className="p-team-summary">
+                        <div>
+                            <p className="p-team-kicker">Session creation</p>
+                            <h3 className="p-team-heading">Who can create sessions</h3>
+                            <p className="p-team-code">{describeSessionCreationAccess(team.session_creation_access)}</p>
+                        </div>
+                        {isTeamOwner ? (
+                            <div className="p-team-setting-row">
+                                <select
+                                    className="p-select"
+                                    value={sessionAccessDraft}
+                                    onChange={(e) => setSessionAccessDraft(e.target.value)}
+                                    disabled={sessionAccessLoading}
+                                >
+                                    <option value="owner_only">Only me</option>
+                                    <option value="staff_only">Admins and coaches</option>
+                                    <option value="all_members">All team members</option>
+                                </select>
+                                <button className="p-btn p-btn--secondary p-btn--inline" onClick={handleSessionAccessSave} disabled={sessionAccessLoading}>
+                                    {sessionAccessLoading ? "Saving..." : "Save Permission"}
+                                </button>
+                            </div>
+                        ) : (
+                            <p className="p-empty">Only the team owner can change this setting.</p>
+                        )}
+                    </div>
+
                     <div className="p-stat-grid">
                         <div className="p-stat-card">
                             <span className="p-stat-value">{members.length}</span>
@@ -251,7 +338,7 @@ export default function TeamPage() {
                                 <p className="p-eyebrow">Sessions</p>
                                 <h2 className="p-section-title">Team Schedule</h2>
                             </div>
-                            {isTeamLeader && (
+                            {canCreateSessions && (
                                 <button className="p-btn p-btn--secondary p-btn--inline" onClick={() => navigate("/games/create")}>
                                     Create Session
                                 </button>
@@ -263,21 +350,7 @@ export default function TeamPage() {
                             {upcomingGames.length === 0 ? (
                                 <p className="p-empty">No team sessions scheduled.</p>
                             ) : (
-                                upcomingGames.map((game) => (
-                                    <button
-                                        key={game.id}
-                                        className="p-game-item"
-                                        onClick={() => navigate(`/games/${game.id}`)}
-                                    >
-                                        <div className="p-game-copy">
-                                            <span className="p-game-title">{game.title}</span>
-                                            <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
-                                        </div>
-                                        <span className={`p-game-code ${game.qr_code_active === false ? "p-game-code--inactive" : ""}`}>
-                                            {game.qr_code_active === false ? "Inactive" : game.session_code}
-                                        </span>
-                                    </button>
-                                ))
+                                upcomingGames.map(renderScheduleCard)
                             )}
                         </div>
 
@@ -286,21 +359,7 @@ export default function TeamPage() {
                             {pastGames.length === 0 ? (
                                 <p className="p-empty">No completed team sessions yet.</p>
                             ) : (
-                                pastGames.slice(0, 4).map((game) => (
-                                    <button
-                                        key={game.id}
-                                        className="p-game-item"
-                                        onClick={() => navigate(`/games/${game.id}`)}
-                                    >
-                                        <div className="p-game-copy">
-                                            <span className="p-game-title">{game.title}</span>
-                                            <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
-                                        </div>
-                                        <span className={`p-game-code ${game.qr_code_active === false ? "p-game-code--inactive" : ""}`}>
-                                            {game.qr_code_active === false ? "Inactive" : game.session_code}
-                                        </span>
-                                    </button>
-                                ))
+                                pastGames.slice(0, 4).map(renderScheduleCard)
                             )}
                         </div>
                     </section>

@@ -7,6 +7,7 @@ create table public.teams (
   name text not null,
   join_code character varying not null,
   admin_id uuid not null default gen_random_uuid (),
+  session_creation_access text null default 'staff_only',
   created_at timestamp with time zone null,
   updated_at timestamp with time zone null,
   constraint teams_pkey primary key (id),

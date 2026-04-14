@@ -1,6 +1,9 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/ActionModal.css";
+import { supabase } from "../supabaseClient";
+import { useAuth } from "../AuthContext";
+import { canUserCreateTeamSessions } from "../utils/sessionPermissions";
 
 type ActionModalProps = {
     isOpen: boolean;
@@ -8,7 +11,9 @@ type ActionModalProps = {
 };
 
 export default function ActionModal({ isOpen, onClose }: ActionModalProps) {
+    const { user } = useAuth();
     const navigate = useNavigate();
+    const [canCreateSessions, setCanCreateSessions] = useState(true);
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -20,6 +25,37 @@ export default function ActionModal({ isOpen, onClose }: ActionModalProps) {
         document.body.style.overflow = isOpen ? "hidden" : "";
         return () => { document.body.style.overflow = ""; };
     }, [isOpen]);
+
+    useEffect(() => {
+        const loadPermission = async () => {
+            if (!isOpen) return;
+
+            try {
+                if (!supabase) throw new Error("Supabase not initialized");
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) throw new Error("Not authenticated");
+
+                const [profileRes, teamRes] = await Promise.all([
+                    fetch("http://localhost:8000/api/users/get_user/", {
+                        headers: { Authorization: `Bearer ${session.access_token}` },
+                    }),
+                    fetch("http://localhost:8000/api/teams/my/", {
+                        headers: { Authorization: `Bearer ${session.access_token}` },
+                    }),
+                ]);
+
+                const profileData = profileRes.ok ? await profileRes.json() : [];
+                const teamData = teamRes.ok ? await teamRes.json() : null;
+                setCanCreateSessions(
+                    canUserCreateTeamSessions(profileData[0]?.role, teamData?.team ?? null, user?.id)
+                );
+            } catch (_error) {
+                setCanCreateSessions(true);
+            }
+        };
+
+        loadPermission();
+    }, [isOpen, user?.id]);
 
     if (!isOpen) return null;
 
@@ -40,6 +76,7 @@ export default function ActionModal({ isOpen, onClose }: ActionModalProps) {
                 <p className="am-heading">What would you like to create?</p>
 
                 <div className="am-options">
+                    {canCreateSessions && (
                     <button className="am-option am-option--game" onClick={handleCreateSession}>
                         <div className="am-option-icon">
                             <img src="/gamecreationicon.png" alt="Create Session" width="22" height="22"></img>
@@ -52,6 +89,7 @@ export default function ActionModal({ isOpen, onClose }: ActionModalProps) {
                             <path d="M9 18l6-6-6-6" />
                         </svg>
                     </button>
+                    )}
 
                     <button className="am-option am-option--clip" onClick={handleUploadClip}>
                         <div className="am-option-icon">

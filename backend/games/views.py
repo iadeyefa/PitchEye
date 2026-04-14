@@ -1,4 +1,6 @@
+import time
 from datetime import datetime, timedelta, timezone
+from postgrest.exceptions import APIError
 from django.shortcuts import render
 from utils.supabase_client import supabase, supabase_admin
 from rest_framework.decorators import api_view
@@ -8,6 +10,98 @@ from utils.qr_generator import generate_session_code, generate_qr_code, check_se
 
 QR_CODE_TTL = timedelta(days=1)
 QR_STORAGE_BUCKET = 'qr-codes'
+SESSION_CREATION_ACCESS_OWNER = 'owner_only'
+SESSION_CREATION_ACCESS_STAFF = 'staff_only'
+SESSION_CREATION_ACCESS_ALL = 'all_members'
+VALID_SESSION_CREATION_ACCESS = {
+    SESSION_CREATION_ACCESS_OWNER,
+    SESSION_CREATION_ACCESS_STAFF,
+    SESSION_CREATION_ACCESS_ALL,
+}
+
+
+class _FallbackResponse:
+    def __init__(self, data=None):
+        self.data = data or []
+
+
+def _execute_query(query_factory, fallback=None, attempts=3, delay=0.15):
+    last_error = None
+
+    for attempt in range(attempts):
+        try:
+            return query_factory().execute()
+        except Exception as exc:
+            last_error = exc
+            if attempt == attempts - 1:
+                break
+            time.sleep(delay * (attempt + 1))
+
+    if fallback is not None:
+        return fallback
+    raise last_error
+
+
+def _normalize_session_creation_access(value):
+    if value in VALID_SESSION_CREATION_ACCESS:
+        return value
+    return SESSION_CREATION_ACCESS_STAFF
+
+
+def _is_missing_session_creation_access_column_error(exc):
+    message = ""
+    if isinstance(exc, APIError):
+        message = str(getattr(exc, "message", "") or exc.args[0] if exc.args else "")
+        if not message and hasattr(exc, "json"):
+            message = str(exc.json())
+    else:
+        message = str(exc)
+    return "session_creation_access" in message and "schema cache" in message
+
+
+def _can_user_create_session(profile, team, user_id):
+    team_id = (profile or {}).get('team_id')
+    if not team_id:
+        return True
+
+    session_creation_access = _normalize_session_creation_access((team or {}).get('session_creation_access'))
+    role = (profile or {}).get('role')
+    owner_id = str((team or {}).get('admin_id') or '')
+    is_owner = owner_id == str(user_id)
+
+    if session_creation_access == SESSION_CREATION_ACCESS_OWNER:
+        return is_owner
+    if session_creation_access == SESSION_CREATION_ACCESS_ALL:
+        return True
+    return is_owner or role in ('admin', 'coach')
+
+
+def _get_profile_for_user(user_id):
+    return _execute_query(
+        lambda: supabase_admin.table('profiles').select('id, team_id, role').eq('id', str(user_id)),
+        fallback=_FallbackResponse([]),
+    ).data
+
+
+def _get_team_for_profile(profile):
+    team_id = (profile or {}).get('team_id')
+    if not team_id:
+        return None
+
+    try:
+        team_rows = _execute_query(
+            lambda: supabase_admin.table('teams').select('id, admin_id, session_creation_access').eq('id', team_id),
+            fallback=_FallbackResponse([]),
+        ).data
+    except Exception as exc:
+        if _is_missing_session_creation_access_column_error(exc):
+            team_rows = _execute_query(
+                lambda: supabase_admin.table('teams').select('id, admin_id').eq('id', team_id),
+                fallback=_FallbackResponse([]),
+            ).data
+        else:
+            raise
+    return team_rows[0] if team_rows else None
 
 
 def _parse_timestamp(value):
@@ -91,23 +185,80 @@ def serialize_game(game):
 
 @api_view(['GET'])
 def list_games(request):
-    data = supabase_admin.table('games').select('*').execute()
+    data = _execute_query(
+        lambda: supabase_admin.table('games').select('*'),
+        fallback=_FallbackResponse([]),
+    )
     return Response([serialize_game(game) for game in data.data])
 
 @api_view(['GET'])
 def list_my_games(request):
     user = check_user(request.headers.get('Authorization'))
-    data = supabase_admin.table('games').select('*').eq('created_by', str(user.id)).execute()
-    return Response([serialize_game(game) for game in data.data])
+    user_id = str(user.id)
+    profile = _execute_query(
+        lambda: supabase_admin.table('profiles').select('team_id').eq('id', user_id),
+        fallback=_FallbackResponse([]),
+    )
+    team_id = profile.data[0].get('team_id') if profile.data else None
+
+    own_games = _execute_query(
+        lambda: supabase_admin.table('games').select('*').eq('created_by', user_id),
+        fallback=_FallbackResponse([]),
+    ).data
+    visible_games = {game['id']: game for game in own_games}
+
+    if team_id:
+        team_members = _execute_query(
+            lambda: supabase_admin.table('profiles').select('id').eq('team_id', team_id),
+            fallback=_FallbackResponse([]),
+        ).data
+        member_ids = [member['id'] for member in team_members]
+        if member_ids:
+            team_games = _execute_query(
+                lambda: supabase_admin.table('games').select('*').in_('created_by', member_ids),
+                fallback=_FallbackResponse([]),
+            ).data
+            for game in team_games:
+                visible_games[game['id']] = game
+
+    ordered_games = sorted(
+        visible_games.values(),
+        key=lambda game: game.get('game_time') or '',
+        reverse=True,
+    )
+
+    return Response([
+        {
+            **serialize_game(game),
+            'owned_by_current_user': game.get('created_by') == user_id,
+        }
+        for game in ordered_games
+    ])
 
 @api_view(['GET'])
 def get_game(request, id): 
-    data = supabase_admin.table('games').select('*').eq('id', id).execute()
+    data = _execute_query(
+        lambda: supabase_admin.table('games').select('*').eq('id', id),
+        fallback=_FallbackResponse([]),
+    )
     return Response([serialize_game(game) for game in data.data])
 
 @api_view(['POST'])
 def create_game(request):
     user = check_user(request.headers.get('Authorization'))
+    user_id = str(user.id)
+    profile_rows = _get_profile_for_user(user_id)
+    profile = profile_rows[0] if profile_rows else {}
+    team = _get_team_for_profile(profile)
+
+    if not _can_user_create_session(profile, team, user_id):
+        policy = _normalize_session_creation_access((team or {}).get('session_creation_access'))
+        policy_message = {
+            SESSION_CREATION_ACCESS_OWNER: 'Only the team owner can create sessions for this team.',
+            SESSION_CREATION_ACCESS_STAFF: 'Only the team owner, admins, and coaches can create sessions for this team.',
+            SESSION_CREATION_ACCESS_ALL: 'All team members can create sessions for this team.',
+        }
+        return Response({'error': policy_message.get(policy, 'You are not allowed to create sessions for this team.')}, status=403)
 
     session_code = generate_session_code()
     while check_session_code_exists(session_code):
@@ -124,7 +275,7 @@ def create_game(request):
         'qr_code_url': qr_code_url,
     }
 
-    data = supabase_admin.table('games').insert(payload).execute()
+    data = _execute_query(lambda: supabase_admin.table('games').insert(payload))
     return Response(serialize_game(data.data[0]), status=201)
 
 
@@ -132,7 +283,10 @@ def create_game(request):
 def update_game(request, id):
     user = check_user(request.headers.get('Authorization'))
 
-    data = supabase_admin.table('games').select('*').eq('id', id).execute()
+    data = _execute_query(
+        lambda: supabase_admin.table('games').select('*').eq('id', id),
+        fallback=_FallbackResponse([]),
+    )
     if not data.data:
         return Response({'error': 'Game not found'}, status=404)
 
@@ -163,12 +317,18 @@ def update_game(request, id):
     if updated.data:
         return Response(serialize_game(updated.data[0]))
 
-    refreshed = supabase_admin.table('games').select('*').eq('id', id).execute()
+    refreshed = _execute_query(
+        lambda: supabase_admin.table('games').select('*').eq('id', id),
+        fallback=_FallbackResponse([]),
+    )
     return Response(serialize_game(refreshed.data[0]))
 
 @api_view(['GET'])
 def get_game_by_session_code(request, session_code):
-    data = supabase_admin.table('games').select('*').eq('session_code', session_code.upper()).execute()
+    data = _execute_query(
+        lambda: supabase_admin.table('games').select('*').eq('session_code', session_code.upper()),
+        fallback=_FallbackResponse([]),
+    )
     if len(data.data) == 0:
         return Response({'error': 'Invalid session code'}, status=404)
     if not is_qr_code_active(data.data[0]):
@@ -180,7 +340,10 @@ def get_game_by_session_code(request, session_code):
 def end_game_session(request, id):
     user = check_user(request.headers.get('Authorization'))
 
-    data = supabase_admin.table('games').select('*').eq('id', id).execute()
+    data = _execute_query(
+        lambda: supabase_admin.table('games').select('*').eq('id', id),
+        fallback=_FallbackResponse([]),
+    )
     if not data.data:
         return Response({'error': 'Game not found'}, status=404)
 
@@ -220,24 +383,39 @@ def end_game_session(request, id):
     if updated.data:
         return Response(serialize_game(updated.data[0]))
 
-    refreshed = supabase_admin.table('games').select('*').eq('id', id).execute()
+    refreshed = _execute_query(
+        lambda: supabase_admin.table('games').select('*').eq('id', id),
+        fallback=_FallbackResponse([]),
+    )
     return Response(serialize_game(refreshed.data[0]))
 
 
 @api_view(['GET'])
 def list_attachable_games(request):
     user = check_user(request.headers.get('Authorization'))
-    profile = supabase_admin.table('profiles').select('team_id').eq('id', str(user.id)).execute()
+    profile = _execute_query(
+        lambda: supabase_admin.table('profiles').select('team_id').eq('id', str(user.id)),
+        fallback=_FallbackResponse([]),
+    )
     team_id = profile.data[0].get('team_id') if profile.data else None
 
-    own_games = supabase_admin.table('games').select('*').eq('created_by', str(user.id)).execute().data
+    own_games = _execute_query(
+        lambda: supabase_admin.table('games').select('*').eq('created_by', str(user.id)),
+        fallback=_FallbackResponse([]),
+    ).data
     attachable_games = {game['id']: game for game in own_games}
 
     if team_id:
-        team_members = supabase_admin.table('profiles').select('id').eq('team_id', team_id).execute().data
+        team_members = _execute_query(
+            lambda: supabase_admin.table('profiles').select('id').eq('team_id', team_id),
+            fallback=_FallbackResponse([]),
+        ).data
         member_ids = [member['id'] for member in team_members]
         if member_ids:
-            team_games = supabase_admin.table('games').select('*').in_('created_by', member_ids).execute().data
+            team_games = _execute_query(
+                lambda: supabase_admin.table('games').select('*').in_('created_by', member_ids),
+                fallback=_FallbackResponse([]),
+            ).data
             for game in team_games:
                 attachable_games[game['id']] = game
 

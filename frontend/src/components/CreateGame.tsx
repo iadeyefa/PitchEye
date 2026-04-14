@@ -99,7 +99,7 @@ export default function CreateGame() {
                             Upload To Session
                         </button>
                         <button className="app-card-btn-secondary" onClick={reset}>
-                            + New Session
+                            + New Game
                         </button>
                     </div>
                 </div>

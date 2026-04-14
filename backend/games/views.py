@@ -68,11 +68,14 @@ def _sign_qr_url(game):
     if not storage_path:
         return None
 
-    signed = supabase_admin.storage.from_(QR_STORAGE_BUCKET).create_signed_url(
-        storage_path,
-        expires_in=604800,
-    )
-    return signed.get("signedURL") or signed.get("signed_url")
+    try:
+        signed = supabase_admin.storage.from_(QR_STORAGE_BUCKET).create_signed_url(
+            storage_path,
+            expires_in=604800,
+        )
+        return signed.get("signedURL") or signed.get("signed_url")
+    except Exception:
+        return None
 
 
 def serialize_game(game):

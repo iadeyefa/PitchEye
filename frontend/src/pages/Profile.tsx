@@ -10,8 +10,8 @@ type Game = {
     session_code: string;
     game_time: string;
     qr_code_active?: boolean;
-    can_accept_uploads?: boolean;
     session_started?: boolean;
+    can_accept_uploads?: boolean;
 };
 
 type Team = {
@@ -168,8 +168,11 @@ export default function Profile() {
     };
 
     const isTeamLeader = userRole === "admin" || userRole === "coach";
+    const activeGames = myGames
+        .filter((game) => game.can_accept_uploads)
+        .sort((a, b) => new Date(b.game_time).getTime() - new Date(a.game_time).getTime());
     const upcomingGames = myGames
-        .filter((game) => new Date(game.game_time).getTime() >= Date.now())
+        .filter((game) => new Date(game.game_time).getTime() >= Date.now() && !game.can_accept_uploads)
         .sort((a, b) => new Date(a.game_time).getTime() - new Date(b.game_time).getTime());
     const activeGames = myGames
         .filter((game) => game.can_accept_uploads)
@@ -177,6 +180,7 @@ export default function Profile() {
     const pastGames = myGames
         .filter((game) => new Date(game.game_time).getTime() < Date.now() && !game.can_accept_uploads)
         .sort((a, b) => new Date(b.game_time).getTime() - new Date(a.game_time).getTime());
+    const nextSession = upcomingGames[0] ?? null;
 
     const formatGameTime = (gameTime: string) =>
         new Date(gameTime).toLocaleString(undefined, {

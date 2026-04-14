@@ -312,7 +312,7 @@ export default function GameDetail() {
     };
 
     if (loading) return <div className="app-card-container"><div className="app-card"><p style={{color:'white'}}>Loading...</p></div></div>;
-    if (error || !game) return <div className="app-card-container"><div className="app-card"><p style={{color:'#f87171'}}>{error || "Game not found"}</p></div></div>;
+    if (error || !game) return <div className="app-card-container"><div className="app-card"><p style={{color:'#f87171'}}>{error || "Session not found"}</p></div></div>;
 
     return (
         <div className="app-card-container">
@@ -323,7 +323,7 @@ export default function GameDetail() {
                 >
                     ← Back
                 </button>
-                <p className="app-card-eyebrow">Game Session</p>
+                <p className="app-card-eyebrow">Session</p>
                 <h2 className="app-card-title">{game.title}</h2>
                 <p className="app-card-subtitle">
                     {new Date(game.game_time).toLocaleString(undefined, {

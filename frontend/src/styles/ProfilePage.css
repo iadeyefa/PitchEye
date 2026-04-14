@@ -298,6 +298,20 @@
     background: rgba(255, 255, 255, 0.08);
 }
 
+.p-game-main {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
 .p-game-title {
     font-size: 0.95rem;
     color: white;
@@ -321,6 +335,43 @@
     color: rgba(255, 255, 255, 0.4);
     letter-spacing: 0.1em;
     align-self: flex-start;
+}
+
+.p-game-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+}
+
+.p-game-action {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.06);
+    color: white;
+    border-radius: 999px;
+    min-height: 38px;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.p-game-action--ghost {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.p-game-action--danger {
+    background: rgba(172, 46, 34, 0.95);
+    border-color: rgba(172, 46, 34, 1);
+    color: #fff4f1;
+}
+
+.p-game-edit-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
 }
 
 .p-game-code--inactive {
@@ -582,10 +633,14 @@
     }
 
     .p-game-item {
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .p-game-main {
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
-        gap: 12px;
     }
 
     .p-game-code {

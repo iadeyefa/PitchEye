@@ -6,6 +6,8 @@ urlpatterns = [
     path('my/', views.list_my_games),
     path('attachable/', views.list_attachable_games),
     path('<int:id>/', views.get_game),
+    path('<int:id>/update/', views.update_game),
+    path('<int:id>/end/', views.end_game_session),
     path('create/', views.create_game),
     path('join/<str:session_code>/', views.get_game_by_session_code),
 ]

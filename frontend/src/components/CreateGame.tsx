@@ -91,14 +91,16 @@ export default function CreateGame() {
                         </div>
                     )}
 
-                    <div className="cg-success-actions">
-                        <button
-                            className="app-card-btn-primary"
-                            onClick={() => navigate(`/games/${result.id}`)}
-                        >
+                    <div className="cg-result-actions">
+                        <button className="app-card-btn-primary" onClick={() => navigate(`/games/${result.id}`)}>
                             Open Session
                         </button>
-                        <button className="app-card-btn-secondary" onClick={reset}>+ New Session</button>
+                        <button className="app-card-btn-secondary" onClick={() => navigate(`/upload?gameId=${result.id}`)}>
+                            Upload To Session
+                        </button>
+                        <button className="app-card-btn-secondary" onClick={reset}>
+                            + New Session
+                        </button>
                     </div>
                 </div>
             </div>

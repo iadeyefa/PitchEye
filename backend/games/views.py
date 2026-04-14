@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from utils.helpers import check_user
 from utils.qr_generator import generate_session_code, generate_qr_code, check_session_code_exists
 
-QR_CODE_TTL = timedelta(days=7)
+QR_CODE_TTL = timedelta(days=1)
 QR_STORAGE_BUCKET = 'qr-codes'
 
 
@@ -24,6 +24,9 @@ def _parse_timestamp(value):
 
 
 def is_qr_code_active(game):
+    if game.get('ended_at') or not game.get('qr_code_url'):
+        return False
+
     created_at = _parse_timestamp(game.get('created_at'))
     game_time = _parse_timestamp(game.get('game_time'))
 
@@ -80,6 +83,7 @@ def serialize_game(game):
     serialized['qr_code_storage_path'] = _resolve_qr_storage_path(game)
     serialized['qr_code_url'] = _sign_qr_url(game) if is_qr_code_active(game) else None
     serialized['qr_code_active'] = is_qr_code_active(game)
+    serialized['manually_ended'] = bool(game.get('ended_at') or not game.get('qr_code_url'))
     serialized['session_started'] = has_session_started(game)
     serialized['can_accept_uploads'] = serialized['qr_code_active'] and serialized['session_started']
     return serialized
@@ -123,14 +127,101 @@ def create_game(request):
     data = supabase_admin.table('games').insert(payload).execute()
     return Response(serialize_game(data.data[0]), status=201)
 
+
+@api_view(['PATCH'])
+def update_game(request, id):
+    user = check_user(request.headers.get('Authorization'))
+
+    data = supabase_admin.table('games').select('*').eq('id', id).execute()
+    if not data.data:
+        return Response({'error': 'Game not found'}, status=404)
+
+    game = data.data[0]
+    if game.get('created_by') != str(user.id):
+        return Response({'error': 'Not authorized to update this session'}, status=403)
+    if has_session_started(game):
+        return Response({'error': 'You can only edit a session before it starts'}, status=400)
+
+    next_game_time = request.data.get('game_time')
+    if not next_game_time:
+        return Response({'error': 'game_time is required'}, status=400)
+
+    parsed_game_time = _parse_timestamp(next_game_time)
+    if not parsed_game_time:
+        return Response({'error': 'Invalid game_time'}, status=400)
+    if parsed_game_time <= datetime.now(timezone.utc):
+        return Response({'error': 'Session start time must be in the future'}, status=400)
+
+    updated = (
+        supabase_admin
+        .table('games')
+        .update({'game_time': next_game_time})
+        .eq('id', id)
+        .execute()
+    )
+
+    if updated.data:
+        return Response(serialize_game(updated.data[0]))
+
+    refreshed = supabase_admin.table('games').select('*').eq('id', id).execute()
+    return Response(serialize_game(refreshed.data[0]))
+
 @api_view(['GET'])
 def get_game_by_session_code(request, session_code):
     data = supabase_admin.table('games').select('*').eq('session_code', session_code.upper()).execute()
     if len(data.data) == 0:
         return Response({'error': 'Invalid session code'}, status=404)
     if not is_qr_code_active(data.data[0]):
-        return Response({'error': 'This session QR code has expired'}, status=410)
+        return Response({'error': 'This session is no longer active'}, status=410)
     return Response(serialize_game(data.data[0]))
+
+
+@api_view(['POST'])
+def end_game_session(request, id):
+    user = check_user(request.headers.get('Authorization'))
+
+    data = supabase_admin.table('games').select('*').eq('id', id).execute()
+    if not data.data:
+        return Response({'error': 'Game not found'}, status=404)
+
+    game = data.data[0]
+    if game.get('created_by') != str(user.id):
+        return Response({'error': 'Not authorized to end this session'}, status=403)
+    if not has_session_started(game):
+        return Response({'error': 'You can only end a session after it has started'}, status=400)
+
+    if not is_qr_code_active(game):
+        return Response(serialize_game(game))
+
+    update_payload = {'qr_code_url': None}
+    ended_at = datetime.now(timezone.utc).isoformat()
+
+    try:
+        updated = (
+            supabase_admin
+            .table('games')
+            .update({
+                **update_payload,
+                'ended_at': ended_at,
+            })
+            .eq('id', id)
+            .execute()
+        )
+    except Exception:
+        # Older Supabase schemas may not have ended_at yet; still allow the session to be ended.
+        updated = (
+            supabase_admin
+            .table('games')
+            .update(update_payload)
+            .eq('id', id)
+            .execute()
+        )
+
+    if updated.data:
+        return Response(serialize_game(updated.data[0]))
+
+    refreshed = supabase_admin.table('games').select('*').eq('id', id).execute()
+    return Response(serialize_game(refreshed.data[0]))
 
 
 @api_view(['GET'])

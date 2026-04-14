@@ -145,6 +145,35 @@
     margin: -2px 0 0;
 }
 
+.hf-comment-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hf-comment-line,
+.hf-comment-more {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.hf-comment-author {
+    color: rgba(255, 255, 255, 0.78);
+    font-weight: 600;
+}
+
+.hf-comment-body {
+    color: rgba(255, 255, 255, 0.56);
+}
+
+.hf-comment-more {
+    color: rgba(255, 255, 255, 0.38);
+}
+
 .hf-post-footer {
     display: flex;
     align-items: center;

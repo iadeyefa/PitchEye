@@ -15,6 +15,7 @@ type ActiveGame = {
     session_code: string;
     game_time: string;
     can_accept_uploads?: boolean;
+    session_started?: boolean;
     created_by: string;
 };
 
@@ -63,6 +64,11 @@ export default function LivePage() {
     const [streamsLoading, setStreamsLoading] = useState(false);
     const [streamsError, setStreamsError] = useState("");
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const selectedGame = useMemo(
+        () => games.find((game) => game.id === selectedGameId) ?? games[0] ?? null,
+        [games, selectedGameId],
+    );
 
     useEffect(() => {
         const fetchLiveSessions = async () => {
@@ -183,6 +189,42 @@ export default function LivePage() {
         if (visibleLiveTiles.length === 0) return "Stream is starting - waiting for the publisher feed to appear.";
         return "";
     }, [visibleLiveTiles.length, streamInfo, streamsError, streamsLoading]);
+
+    const handleStreamInactive = (streamName: string) => {
+        setLiveStreams((current) => current.filter((stream) => stream.name !== streamName));
+    };
+
+    const handleEndSession = async () => {
+        if (!selectedGame || !isHost || isEndingSession || selectedGame.session_started === false) return;
+
+        const confirmed = window.confirm("End this session now? Players will no longer be able to join or upload clips.");
+        if (!confirmed) return;
+
+        setIsEndingSession(true);
+        try {
+            if (!supabase) throw new Error("Supabase not initialized");
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Not authenticated");
+
+            const res = await fetch(`${API_BASE}/games/${selectedGame.id}/end/`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(payload.error || "Failed to end session");
+
+            const remainingGames = games.filter((game) => game.id !== selectedGame.id);
+            setGames(remainingGames);
+            setSelectedGameId((current) => (current === selectedGame.id ? remainingGames[0]?.id ?? null : current));
+            setStreamInfo(null);
+            setLiveStreams([]);
+        } catch {
+            alert("Failed to end session");
+        } finally {
+            setIsEndingSession(false);
+        }
+    };
 
     const handleStartStream = async () => {
         if (!selectedGame || !userId) return;
@@ -388,14 +430,20 @@ export default function LivePage() {
                                             </button>
                                         ) : (
                                             <button
-                                                className="live-open-btn"
+                                                className="live-open-btn live-open-btn--danger"
                                                 onClick={handleEndStream}
                                                 disabled={isEnding}
-                                                style={{ backgroundColor: "#dc2626" }}
                                             >
                                                 {isEnding ? "Ending..." : "End Stream"}
                                             </button>
                                         )}
+                                        <button
+                                            className="live-open-btn live-open-btn--danger-soft"
+                                            onClick={handleEndSession}
+                                            disabled={isEndingSession || selectedGame.session_started === false}
+                                        >
+                                            {isEndingSession ? "Ending Session..." : "End Session"}
+                                        </button>
                                     </div>
                                 )}
                             </div>

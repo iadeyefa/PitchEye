@@ -15,11 +15,7 @@ import TeamPage from "./pages/TeamPage";
 import LiveFeed from "./components/LiveFeed";
 
 function App() {
-  const { user, loading, logout } = useAuth();
-
-  const handleLogout = async () => {
-    await logout();
-  };
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (

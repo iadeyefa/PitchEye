@@ -4,6 +4,7 @@ import "../styles/ProfilePage.css";
 import { useAuth } from "../AuthContext";
 import { useNavigate } from "react-router-dom";
 import { canUserCreateTeamSessions } from "../utils/sessionPermissions";
+import { getJoinedSessionCodes, mergeGamesById, removeJoinedSessionCode, resolveJoinedSessions } from "../utils/joinedSessions";
 
 type Game = {
     id: number;
@@ -55,6 +56,7 @@ export default function Profile() {
     const [teamMode, setTeamMode] = useState<'join' | 'create'>('join');
     const [newTeamName, setNewTeamName] = useState("");
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+    const [joinedSessionCodes, setJoinedSessionCodes] = useState<string[]>([]);
 
     const isValidEmail = (email: string) =>
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -71,9 +73,11 @@ export default function Profile() {
             headers: { Authorization: `Bearer ${token}` },
         });
         if (!response.ok) throw new Error(`Error ${response.status}`);
-        const data = await response.json();
-        setMyGames(data);
-    }, []);
+        const data: Game[] = await response.json();
+        const joinedGames = await resolveJoinedSessions(token, user?.id);
+        setJoinedSessionCodes(getJoinedSessionCodes(user?.id));
+        setMyGames(mergeGamesById(data, joinedGames as Game[]));
+    }, [user?.id]);
 
     const fetchMyTeam = useCallback(async (token: string) => {
         const profileRes = await fetch("http://localhost:8000/api/users/get_user/", {
@@ -274,6 +278,7 @@ export default function Profile() {
     const renderSessionCard = (game: Game, options?: { allowEnd?: boolean; allowReschedule?: boolean }) => {
         const isEditing = editingGameId === game.id;
         const isOwnedByCurrentUser = game.owned_by_current_user !== false;
+        const isJoinedByCode = joinedSessionCodes.includes(game.session_code.toUpperCase());
 
         return (
             <div key={game.id} className="p-game-item">
@@ -282,7 +287,7 @@ export default function Profile() {
                         <span className="p-game-title">{game.title}</span>
                         <span className="p-game-meta">{formatGameTime(game.game_time)}</span>
                         {!isOwnedByCurrentUser && (
-                            <span className="p-game-note">Shared from your team</span>
+                            <span className="p-game-note">{isJoinedByCode ? "Joined by session code" : "Shared from your team"}</span>
                         )}
                     </div>
                     <span className={`p-game-code ${game.qr_code_active === false ? "p-game-code--inactive" : ""}`}>
@@ -309,6 +314,22 @@ export default function Profile() {
                                 Change Start Time
                             </button>
                         )}
+                    </div>
+                )}
+
+                {!isOwnedByCurrentUser && isJoinedByCode && (
+                    <div className="p-game-actions">
+                        <button
+                            className="p-game-action p-game-action--ghost"
+                            onClick={() => {
+                                if (!user?.id) return;
+                                removeJoinedSessionCode(user.id, game.session_code);
+                                setJoinedSessionCodes(getJoinedSessionCodes(user.id));
+                                setMyGames((current) => current.filter((item) => item.id !== game.id));
+                            }}
+                        >
+                            Leave Session
+                        </button>
                     </div>
                 )}
 
@@ -550,7 +571,7 @@ export default function Profile() {
                             <div>
                                 <p className="p-eyebrow">Activity</p>
                                 <h2 className="p-section-title">My Sessions</h2>
-                                <p className="p-title">Includes sessions you created and sessions shared with your team.</p>
+                                <p className="p-title">Includes sessions you created, sessions shared with your team, and sessions you joined by code.</p>
                             </div>
                             {canCreateSessions && (
                                 <button className="p-btn p-btn--secondary p-btn--inline" onClick={() => navigate("/games/create")}>

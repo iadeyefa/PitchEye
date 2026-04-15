@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Hls from "hls.js";
 
 type Props = {
@@ -13,6 +13,7 @@ type Props = {
     onInactive?: () => void;
     liveEdge?: boolean;
     onClick?: React.MouseEventHandler<HTMLVideoElement>;
+    fallbackSrcs?: string[];
 };
 
 const isHlsUrl = (value: string) => value.toLowerCase().includes(".m3u8");
@@ -29,11 +30,22 @@ export default function SmartVideo({
     onInactive,
     liveEdge = false,
     onClick,
+    fallbackSrcs = [],
 }: Props) {
     const internalVideoRef = useRef<HTMLVideoElement>(null);
     const videoRef = externalVideoRef ?? internalVideoRef;
     const onInactiveRef = useRef(onInactive);
     onInactiveRef.current = onInactive;
+    const candidateSources = useMemo(
+        () => [src, ...fallbackSrcs.filter((candidate) => candidate && candidate !== src)],
+        [fallbackSrcs, src],
+    );
+    const [sourceIndex, setSourceIndex] = useState(0);
+    const activeSrc = candidateSources[Math.min(sourceIndex, candidateSources.length - 1)] || src;
+
+    useEffect(() => {
+        setSourceIndex(0);
+    }, [candidateSources]);
 
     useEffect(() => {
         const video = videoRef.current;
@@ -86,27 +98,36 @@ export default function SmartVideo({
             video.addEventListener("ended", handleEndedOrStalled);
         }
 
-        if (isHlsUrl(src)) {
+        const advanceToNextSource = () => {
+            setSourceIndex((current) => {
+                if (current < candidateSources.length - 1) {
+                    return current + 1;
+                }
+                onInactiveRef.current?.();
+                return current;
+            });
+        };
+
+        if (isHlsUrl(activeSrc)) {
             if (Hls.isSupported()) {
                 hls = new Hls(
                     liveEdge
                         ? {
-                              lowLatencyMode: true,
+                              lowLatencyMode: false,
                               startPosition: -1,
-                              liveSyncDurationCount: 1,
-                              liveMaxLatencyDurationCount: 3,
+                              liveSyncDurationCount: 3,
+                              liveMaxLatencyDurationCount: 6,
+                              maxLiveSyncPlaybackRate: 1.2,
+                              backBufferLength: 90,
                               manifestLoadingMaxRetry: 20,
                               manifestLoadingRetryDelay: 2000,
                               manifestLoadingMaxRetryTimeout: 10000,
                           }
                         : undefined
                 );
-                hls.loadSource(src);
+                hls.loadSource(activeSrc);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    if (liveEdge && (hls as any)?.liveSyncPosition != null) {
-                        video.currentTime = (hls as any).liveSyncPosition;
-                    }
                     if (autoPlay || liveEdge) {
                         video.play().catch(() => {});
                     }
@@ -114,11 +135,19 @@ export default function SmartVideo({
                 });
                 hls.on(Hls.Events.ERROR, (_event, data) => {
                     if (data.fatal) {
-                        onInactive?.();
+                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                            advanceToNextSource();
+                            return;
+                        }
+                        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                            advanceToNextSource();
+                            return;
+                        }
+                        advanceToNextSource();
                     }
                 });
             } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-                video.src = src;
+                video.src = activeSrc;
                 video.addEventListener(
                     "loadedmetadata",
                     () => {
@@ -133,10 +162,10 @@ export default function SmartVideo({
                 );
                 scheduleInactiveCheck();
             } else {
-                video.src = src;
+                video.src = activeSrc;
             }
         } else {
-            video.src = src;
+            video.src = activeSrc;
             if (autoPlay) {
                 video.play().catch(() => {});
             }
@@ -150,7 +179,7 @@ export default function SmartVideo({
             video.removeEventListener("ended", handleEndedOrStalled);
             hls?.destroy();
         };
-    }, [autoPlay, liveEdge, src, videoRef]);
+    }, [activeSrc, autoPlay, candidateSources.length, liveEdge, videoRef]);
 
     return (
         <video

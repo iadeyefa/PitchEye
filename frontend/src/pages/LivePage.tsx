@@ -4,9 +4,12 @@ import { supabase } from "../supabaseClient";
 import LiveStreamPlayer from "../components/LiveStreamPlayer";
 import "../styles/common.css";
 import "../styles/LivePage.css";
+import { mergeGamesById, resolveJoinedSessions } from "../utils/joinedSessions";
 
 const SRS_API = process.env.REACT_APP_SRS_API;
 const SRS_HTTP = process.env.REACT_APP_SRS_HTTP;
+const HLS_BASE = process.env.REACT_APP_HLS_SERVER_URL || `${SRS_HTTP}/hls`;
+const LIVE_HLS_BASE = `${SRS_HTTP}/live`;
 const API_BASE = "http://localhost:8000/api";
 
 type ActiveGame = {
@@ -53,7 +56,7 @@ export default function LivePage() {
     const [isEnding, setIsEnding] = useState(false);
     const [isEndingSession, setIsEndingSession] = useState(false);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const deadStreamsRef = useRef<Set<string>>(new Set());
+    const missingStreamsRef = useRef<Map<string, number>>(new Map());
 
     const selectedGame = useMemo(
         () => games.find((game) => game.id === selectedGameId) ?? games[0] ?? null,
@@ -76,7 +79,9 @@ export default function LivePage() {
                 if (!response.ok) throw new Error(`Error ${response.status}`);
 
                 const data: ActiveGame[] = await response.json();
-                const liveGames = data.filter((game) => game.can_accept_uploads);
+                const joinedGames = await resolveJoinedSessions(session.access_token, session.user.id);
+                const mergedGames = mergeGamesById(data, joinedGames as ActiveGame[]);
+                const liveGames = mergedGames.filter((game) => game.can_accept_uploads);
                 setGames(liveGames);
                 setSelectedGameId((current) => current ?? liveGames[0]?.id ?? null);
             } catch (err: unknown) {
@@ -119,9 +124,8 @@ export default function LivePage() {
         return selectedGame && userId && selectedGame.created_by === userId;
     }, [selectedGame, userId]);
 
-    const handleStreamInactive = (streamName: string) => {
-        deadStreamsRef.current.add(streamName);
-        setLiveStreams((current) => current.filter((stream) => stream.name !== streamName));
+    const handleStreamInactive = () => {
+        // Ignore transient player stalls. Tile visibility is driven by SRS polling.
     };
 
     const handleEndSession = async () => {
@@ -218,18 +222,34 @@ export default function LivePage() {
                 const res = await fetch(`${SRS_API}/api/v1/streams/`);
                 const json = await res.json();
                 const all: SrsStream[] = json.streams ?? [];
-                const srsNames = new Set(all.map((s) => s.name));
+                const now = Date.now();
+                const prefix = selectedGame.session_code.toLowerCase() + "_";
+                const sessionStreams = all.filter((s) => s.name.toLowerCase().startsWith(prefix));
+                const presentNames = new Set(sessionStreams.map((stream) => stream.name));
 
-                // Once SRS confirms a dead stream is fully gone, clear its suppression
-                // so a future stream with the same name can appear again
-                deadStreamsRef.current.forEach((name) => {
-                    if (!srsNames.has(name)) deadStreamsRef.current.delete(name);
+                liveStreams.forEach((stream) => {
+                    if (presentNames.has(stream.name)) {
+                        missingStreamsRef.current.delete(stream.name);
+                    } else if (!missingStreamsRef.current.has(stream.name)) {
+                        missingStreamsRef.current.set(stream.name, now);
+                    }
                 });
 
-                const prefix = selectedGame.session_code.toLowerCase() + "_";
-                const next = all.filter(
-                    (s) => s.name.toLowerCase().startsWith(prefix) && !deadStreamsRef.current.has(s.name)
-                );
+                sessionStreams.forEach((stream) => {
+                    missingStreamsRef.current.delete(stream.name);
+                });
+
+                const carriedStreams = liveStreams.filter((stream) => {
+                    const missingSince = missingStreamsRef.current.get(stream.name);
+                    return missingSince != null && now - missingSince < 15000;
+                });
+
+                const next = [...sessionStreams];
+                carriedStreams.forEach((stream) => {
+                    if (!next.some((candidate) => candidate.name === stream.name)) {
+                        next.push(stream);
+                    }
+                });
                 setLiveStreams((prev) => {
                     const prevKey = prev.map((s) => s.name).sort().join(",");
                     const nextKey = next.map((s) => s.name).sort().join(",");
@@ -380,12 +400,26 @@ export default function LivePage() {
                                 </p>
                             ) : (
                                 liveStreams.map((stream) => (
-                                    <LiveStreamPlayer
-                                        key={stream.name}
-                                        hlsUrl={`${SRS_HTTP}/live/${stream.name}.m3u8`}
-                                        label={prettifyAngle(stream.name, selectedGame.session_code)}
-                                        onInactive={() => handleStreamInactive(stream.name)}
-                                    />
+                                    (() => {
+                                        const primaryHlsUrl =
+                                            streamInfo?.stream_key === stream.name && streamInfo.hls_url
+                                                ? streamInfo.hls_url
+                                                : `${HLS_BASE}/${stream.name}.m3u8`;
+                                        const fallbackHlsUrls = [
+                                            `${HLS_BASE}/${stream.name}.m3u8`,
+                                            `${LIVE_HLS_BASE}/${stream.name}.m3u8`,
+                                        ].filter((url, index, urls) => urls.indexOf(url) === index && url !== primaryHlsUrl);
+
+                                        return (
+                                            <LiveStreamPlayer
+                                                key={stream.name}
+                                                hlsUrl={primaryHlsUrl}
+                                                fallbackHlsUrls={fallbackHlsUrls}
+                                                label={prettifyAngle(stream.name, selectedGame.session_code)}
+                                                onInactive={handleStreamInactive}
+                                            />
+                                        );
+                                    })()
                                 ))
                             )}
                         </section>

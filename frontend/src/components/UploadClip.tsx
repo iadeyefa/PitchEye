@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import "../styles/common.css";
 import "../styles/UploadClip.css";
+import { addJoinedSessionCode } from "../utils/joinedSessions";
 
 type GameOption = {
     id: number;
@@ -38,6 +39,7 @@ type VideoMetadata = {
 export default function UploadClip() {
     const navigate = useNavigate();
     const location = useLocation();
+    const { sessionCode: routeSessionCode } = useParams<{ sessionCode?: string }>();
     const [video, setVideo] = useState<File | null>(null);
     const [caption, setCaption] = useState("");
     const [tagInput, setTagInput] = useState("");
@@ -50,9 +52,55 @@ export default function UploadClip() {
     const [error, setError] = useState("");
     const [result, setResult] = useState<ClipProps | null>(null);
     const [videoMetadata, setVideoMetadata] = useState<VideoMetadata>({ duration: null, recordedAt: null });
+    const [sessionCodeInput, setSessionCodeInput] = useState(routeSessionCode || "");
+    const [sessionCodeLoading, setSessionCodeLoading] = useState(false);
+    const [sessionJoinMessage, setSessionJoinMessage] = useState("");
 
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const preselectedGameId = new URLSearchParams(location.search).get("gameId");
+    const queryParams = new URLSearchParams(location.search);
+    const preselectedGameId = queryParams.get("gameId");
+    const querySessionCode = queryParams.get("sessionCode");
+    const joinMode = queryParams.get("mode") === "join";
+    const initialSessionCode = (routeSessionCode || querySessionCode || "").toUpperCase();
+
+    const upsertGameOption = useCallback((game: GameOption) => {
+        setGames((current) => {
+            const existingIndex = current.findIndex((entry) => entry.id === game.id);
+            if (existingIndex === -1) {
+                return [game, ...current];
+            }
+
+            const next = [...current];
+            next[existingIndex] = { ...next[existingIndex], ...game };
+            return next;
+        });
+        setSelectedGameId(String(game.id));
+    }, []);
+
+    const fetchGameBySessionCode = useCallback(async (sessionCode: string, token: string, userId?: string) => {
+        const normalizedCode = sessionCode.trim().toUpperCase();
+        if (!normalizedCode) {
+            throw new Error("Enter a session code");
+        }
+
+        const response = await fetch(`http://localhost:8000/api/games/join/${normalizedCode}/`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || "Session not found");
+        }
+
+        const game = payload as GameOption;
+        upsertGameOption(game);
+        if (userId) {
+            addJoinedSessionCode(userId, normalizedCode);
+        }
+        setSessionCodeInput(normalizedCode);
+        setSessionJoinMessage(`Joined session ${normalizedCode}. You can upload a clip now.`);
+        return game;
+    }, [upsertGameOption]);
 
     useEffect(() => {
         const fetchGames = async () => {
@@ -83,6 +131,10 @@ export default function UploadClip() {
                     const teamData = await teamResponse.json();
                     setTeamMembers(teamData.members || []);
                 }
+
+                if (initialSessionCode) {
+                    await fetchGameBySessionCode(initialSessionCode, session.access_token, session.user.id);
+                }
             } catch (err: unknown) {
                 setError((err as Error).message || "Unable to load sessions");
             } finally {
@@ -91,7 +143,15 @@ export default function UploadClip() {
         };
 
         fetchGames();
-    }, [preselectedGameId]);
+    }, [fetchGameBySessionCode, initialSessionCode, preselectedGameId]);
+
+    useEffect(() => {
+        if (!initialSessionCode) {
+            setSessionCodeInput("");
+            return;
+        }
+        setSessionCodeInput(initialSessionCode);
+    }, [initialSessionCode]);
 
     useEffect(() => {
         if (!video) {
@@ -248,7 +308,28 @@ export default function UploadClip() {
         setTags([]);
         setTagInput("");
         setError("");
+        setSessionJoinMessage("");
         setSelectedGameId(preselectedGameId || "");
+    };
+
+    const handleSessionCodeSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setError("");
+        setSessionJoinMessage("");
+
+        try {
+            if (!supabase) throw new Error("Supabase not initialized");
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Not authenticated");
+
+            setSessionCodeLoading(true);
+            const joinedGame = await fetchGameBySessionCode(sessionCodeInput, session.access_token, session.user.id);
+            navigate(`/join/${joinedGame.session_code.toUpperCase()}`, { replace: true });
+        } catch (err: unknown) {
+            setError((err as Error).message || "Unable to join session");
+        } finally {
+            setSessionCodeLoading(false);
+        }
     };
 
     if (result) {
@@ -281,6 +362,37 @@ export default function UploadClip() {
             <div className="app-card">
                 <h1 className="app-card-title">Upload Clip</h1>
                 <p className="app-card-subtitle">Share a video and attach it to a session.</p>
+
+                <div className="uc-session-join-card">
+                    <div>
+                        <p className="uc-session-join-label">Join With Session Code</p>
+                        <p className="uc-session-join-copy">
+                            Use a session code or QR-linked URL to attach clips without joining the full team.
+                        </p>
+                    </div>
+                    <form className="uc-session-join-form" onSubmit={handleSessionCodeSubmit}>
+                        <input
+                            className="app-card-input uc-session-code-input"
+                            type="text"
+                            placeholder="Enter session code"
+                            value={sessionCodeInput}
+                            onChange={(e) => setSessionCodeInput(e.target.value.toUpperCase())}
+                            disabled={loading || gamesLoading || sessionCodeLoading}
+                            maxLength={10}
+                        />
+                        <button
+                            type="submit"
+                            className="app-card-btn-secondary uc-session-code-button"
+                            disabled={loading || gamesLoading || sessionCodeLoading || !sessionCodeInput.trim()}
+                        >
+                            {sessionCodeLoading ? "Joining..." : "Join Session"}
+                        </button>
+                    </form>
+                    {(joinMode || initialSessionCode) && !sessionJoinMessage && (
+                        <span className="uc-hint">Enter the session code shown on the host screen or shared QR link.</span>
+                    )}
+                    {sessionJoinMessage && <div className="app-card-success">{sessionJoinMessage}</div>}
+                </div>
 
                 {error && <div className="app-card-error">{error}</div>}
 

@@ -69,6 +69,11 @@ export default function ActionModal({ isOpen, onClose }: ActionModalProps) {
         navigate("/upload");
     };
 
+    const handleJoinSession = () => {
+        onClose();
+        navigate("/join");
+    };
+
     return (
         <div className="am-overlay" onClick={onClose}>
             <div className="am-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Create options">
@@ -98,6 +103,19 @@ export default function ActionModal({ isOpen, onClose }: ActionModalProps) {
                         <div className="am-option-text">
                             <span className="am-option-title">Upload Clip</span>
                             <span className="am-option-desc">Share a video from a recent match or practice</span>
+                        </div>
+                        <svg className="am-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 18l6-6-6-6" />
+                        </svg>
+                    </button>
+
+                    <button className="am-option am-option--clip" onClick={handleJoinSession}>
+                        <div className="am-option-icon">
+                            <img src="/gamecreationicon.png" alt="Join Session" width="22" height="22"></img>
+                        </div>
+                        <div className="am-option-text">
+                            <span className="am-option-title">Join Session</span>
+                            <span className="am-option-desc">Enter a session code and attach clips without joining the full team</span>
                         </div>
                         <svg className="am-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M9 18l6-6-6-6" />

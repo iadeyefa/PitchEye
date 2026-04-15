@@ -12,7 +12,7 @@ import HomeFeed from "./components/HomeFeed";
 import PostView from "./components/PostView";
 import GameDetail from "./components/GameDetail";
 import TeamPage from "./pages/TeamPage";
-import LiveFeed from "./components/LiveFeed";
+import JoinSessionPage from "./pages/JoinSessionPage";
 
 function App() {
   const { user, loading } = useAuth();
@@ -62,6 +62,8 @@ function App() {
       />
       <Route path="/live" element={user ? <LivePage /> : <Navigate to="/link" replace />} />
       <Route path="/upload" element={user ? <Upload /> : <Navigate to="/upload" replace />} />
+      <Route path="/join" element={user ? <JoinSessionPage /> : <Navigate to="/login" replace />} />
+      <Route path="/join/:sessionCode" element={user ? <JoinSessionPage /> : <Navigate to="/login" replace />} />
       <Route path="/profile" element={user ? <Profile /> : <Navigate to="/profile" replace />} />
       <Route path="/games/create" element={user ? <CreateGame /> : <Navigate to="/login" replace />} />
       <Route path="/post/:id" element={<PostView />} />

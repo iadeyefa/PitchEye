@@ -2,6 +2,7 @@ import os
 import subprocess
 import tempfile
 import uuid
+import time
 import requests
 from datetime import datetime, timezone
 from django.conf import settings
@@ -12,6 +13,28 @@ from utils.supabase_client import supabase_admin
 from utils.helpers import check_user
 
 VIDEO_BUCKET = os.getenv("SUPABASE_VIDEO_BUCKET", "match-videos")
+
+
+class _FallbackResponse:
+    def __init__(self, data=None):
+        self.data = data or []
+
+
+def _execute_query(query_factory, fallback=None, attempts=3, delay=0.15):
+    last_error = None
+
+    for attempt in range(attempts):
+        try:
+            return query_factory().execute()
+        except Exception as exc:
+            last_error = exc
+            if attempt == attempts - 1:
+                break
+            time.sleep(delay * (attempt + 1))
+
+    if fallback is not None:
+        return fallback
+    raise last_error
 
 
 def _archive_stream_recording(stream_row, user_id):
@@ -178,13 +201,25 @@ def end_stream(request):
 
 @api_view(['GET'])
 def get_active_streams(request):
-    data = supabase_admin.table('livestreams').select('*').eq('status', 'live').execute()
+    data = _execute_query(
+        lambda: supabase_admin.table('livestreams').select('*').eq('status', 'live'),
+        fallback=_FallbackResponse([]),
+    )
     return Response([serialize_stream(s) for s in data.data])
 
 
 @api_view(['GET'])
 def get_stream_by_session(request, session_code):
-    data = supabase_admin.table('livestreams').select('*').eq('session_code', session_code.upper()).eq('status', 'live').execute()
+    data = _execute_query(
+        lambda: (
+            supabase_admin
+            .table('livestreams')
+            .select('*')
+            .eq('session_code', session_code.upper())
+            .eq('status', 'live')
+        ),
+        fallback=_FallbackResponse([]),
+    )
     if not data.data:
         return Response({'error': 'No active stream found for this session'}, status=404)
     return Response(serialize_stream(data.data[0]))

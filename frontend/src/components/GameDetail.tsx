@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import "../styles/common.css";
 import "../styles/CreateGame.css";
+import { hasJoinedSessionCode, removeJoinedSessionCode } from "../utils/joinedSessions";
 
 type Game = {
     id: number;
@@ -48,6 +49,7 @@ export default function GameDetail() {
     const [error, setError] = useState("");
     const [sessionFeedback, setSessionFeedback] = useState("");
     const [shareFeedback, setShareFeedback] = useState("");
+    const [isJoinedByCode, setIsJoinedByCode] = useState(false);
     const videoRefs = useRef<Record<number, HTMLVideoElement | null>>({});
     const playbackAnchorRef = useRef<{ wallClock: number; timeline: number } | null>(null);
     const animationFrameRef = useRef<number | null>(null);
@@ -73,6 +75,7 @@ export default function GameDetail() {
             setGame(data[0]);
             setClips(clipsData);
             setSessionFeedback("");
+            setIsJoinedByCode(hasJoinedSessionCode(session.user.id, data[0]?.session_code || ""));
         } catch (err: unknown) {
             setError((err as Error).message);
         } finally {
@@ -311,6 +314,20 @@ export default function GameDetail() {
         }
     };
 
+    const handleLeaveSession = async () => {
+        if (!game || !supabase) return;
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            setError("Not authenticated");
+            return;
+        }
+
+        removeJoinedSessionCode(session.user.id, game.session_code);
+        setIsJoinedByCode(false);
+        setSessionFeedback("Left this joined session.");
+    };
+
     if (loading) return <div className="app-card-container"><div className="app-card"><p style={{color:'white'}}>Loading...</p></div></div>;
     if (error || !game) return <div className="app-card-container"><div className="app-card"><p style={{color:'#f87171'}}>{error || "Session not found"}</p></div></div>;
 
@@ -355,6 +372,15 @@ export default function GameDetail() {
                 )}
 
                 <div className="cg-session-actions">
+                    {isJoinedByCode && (
+                        <button
+                            type="button"
+                            className="app-card-btn-secondary"
+                            onClick={handleLeaveSession}
+                        >
+                            Leave Session
+                        </button>
+                    )}
                     {game.qr_code_active ? (
                         <>
                             {game.can_accept_uploads ? (

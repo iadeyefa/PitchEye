@@ -54,6 +54,15 @@
     margin-bottom: 20px;
 }
 
+.app-card-success {
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px solid rgba(74, 222, 128, 0.2);
+    color: #86efac;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+}
+
 .app-card-form {
     display: flex;
     flex-direction: column;

@@ -3,11 +3,12 @@ import SmartVideo from "./SmartVideo";
 
 type Props = {
     hlsUrl: string;
+    fallbackHlsUrls?: string[];
     label: string;
     onInactive?: () => void;
 };
 
-export default function LiveStreamPlayer({ hlsUrl, label, onInactive }: Props) {
+export default function LiveStreamPlayer({ hlsUrl, fallbackHlsUrls = [], label, onInactive }: Props) {
     const [expanded, setExpanded] = useState(false);
     const expandedVideoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -29,6 +30,7 @@ export default function LiveStreamPlayer({ hlsUrl, label, onInactive }: Props) {
             <div className="live-thumb live-thumb--video">
                 <SmartVideo
                     src={hlsUrl}
+                    fallbackSrcs={fallbackHlsUrls}
                     muted
                     autoPlay
                     className="live-inline-video"
@@ -69,6 +71,7 @@ export default function LiveStreamPlayer({ hlsUrl, label, onInactive }: Props) {
                     <div className="live-viewer-video-shell">
                         <SmartVideo
                             src={hlsUrl}
+                            fallbackSrcs={fallbackHlsUrls}
                             controls
                             videoRef={expandedVideoRef}
                             className="live-viewer-video"

@@ -8,6 +8,49 @@
     transition: border-color 0.15s, background 0.15s;
 }
 
+.uc-session-join-card {
+    margin-bottom: 18px;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.035);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.uc-session-join-label {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.uc-session-join-copy {
+    margin: 6px 0 0;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.uc-session-join-form {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.uc-session-code-input {
+    flex: 1 1 220px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.uc-session-code-button {
+    flex: 0 0 auto;
+}
+
 .uc-dropzone:hover {
     border-color: rgba(255, 255, 255, 0.35);
     background: rgba(255, 255, 255, 0.05);
@@ -152,4 +195,14 @@
 
 .uc-select {
     appearance: none;
+}
+
+@media (max-width: 640px) {
+    .uc-session-join-form {
+        flex-direction: column;
+    }
+
+    .uc-session-code-button {
+        width: 100%;
+    }
 }

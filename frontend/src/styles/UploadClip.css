@@ -1,0 +1,208 @@
+.uc-dropzone {
+    padding: 32px 14px;
+    border: 1.5px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.uc-session-join-card {
+    margin-bottom: 18px;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.035);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.uc-session-join-label {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.uc-session-join-copy {
+    margin: 6px 0 0;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.uc-session-join-form {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.uc-session-code-input {
+    flex: 1 1 220px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.uc-session-code-button {
+    flex: 0 0 auto;
+}
+
+.uc-dropzone:hover {
+    border-color: rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.uc-dropzone--selected {
+    border-style: solid;
+    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.uc-dropzone-hint {
+    font-size: 14px;
+    color: #aaa;
+}
+
+.uc-file-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.uc-file-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.uc-file-size {
+    font-size: 12px;
+    color: white;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+
+.uc-tag-area {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+    color: white;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+}
+
+.uc-tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px 3px 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+    white-space: nowrap;
+}
+
+.uc-tag-remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 15px;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    transition: color 0.1s;
+}
+
+.uc-tag-remove:hover { color: rgba(255, 255, 255, 0.8); }
+
+.uc-tag-input {
+    flex: 1;
+    min-width: 120px;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.95rem;
+    color: white;
+}
+
+.uc-tag-input:disabled { cursor: not-allowed; }
+
+.uc-tag-suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.uc-tag-suggestion {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 10px 12px;
+    color: white;
+    cursor: pointer;
+    text-align: left;
+}
+
+.uc-tag-suggestion-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.uc-tag-suggestion-meta {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.uc-hint {
+    font-size: 11px;
+    color: #aaa;
+}
+
+.uc-action-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.uc-action-row .app-card-btn-secondary,
+.uc-action-row .app-card-btn-primary {
+    flex: 1;
+    text-align: center;
+}
+
+.uc-select {
+    appearance: none;
+}
+
+@media (max-width: 640px) {
+    .uc-session-join-form {
+        flex-direction: column;
+    }
+
+    .uc-session-code-button {
+        width: 100%;
+    }
+}
